@@ -31,9 +31,11 @@ func assertTextDiffSnapshot(
     hostingView.appearance = NSAppearance(named: .aqua)
     hostingView.layoutSubtreeIfNeeded()
 
+    let snapshotImage = renderSnapshotImage1x(view: hostingView, size: size)
+
     assertSnapshot(
-        of: hostingView,
-        as: .image(size: size),
+        of: snapshotImage,
+        as: .image,
         named: name,
         fileID: fileID,
         file: filePath,
@@ -41,4 +43,26 @@ func assertTextDiffSnapshot(
         line: line,
         column: column
     )
+}
+
+@MainActor
+private func renderSnapshotImage1x(view: NSView, size: CGSize) -> NSImage {
+    let rep = NSBitmapImageRep(
+        bitmapDataPlanes: nil,
+        pixelsWide: Int(size.width),
+        pixelsHigh: Int(size.height),
+        bitsPerSample: 8,
+        samplesPerPixel: 4,
+        hasAlpha: true,
+        isPlanar: false,
+        colorSpaceName: .deviceRGB,
+        bytesPerRow: 0,
+        bitsPerPixel: 0
+    )!
+    rep.size = size
+    view.cacheDisplay(in: view.bounds, to: rep)
+
+    let image = NSImage(size: size)
+    image.addRepresentation(rep)
+    return image
 }
