@@ -48,13 +48,13 @@ public struct TextDiffView: View {
     .frame(width: 500)
 }
 
-#Preview("Custom Style") {
+#Preview("TextDiffView") {
     let style = TextDiffStyle(
-        additionFillColor: NSColor.systemGreen.withAlphaComponent(0.28),
-        additionStrokeColor: NSColor.systemGreen.withAlphaComponent(0.75),
+        additionFillColor: .systemGreen.withAlphaComponent(0.28),
+        additionStrokeColor: .systemGreen.withAlphaComponent(0.75),
         additionTextColorOverride: .labelColor,
-        deletionFillColor: NSColor.systemRed.withAlphaComponent(0.24),
-        deletionStrokeColor: NSColor.systemRed.withAlphaComponent(0.75),
+        deletionFillColor: .systemRed.withAlphaComponent(0.24),
+        deletionStrokeColor: .systemRed.withAlphaComponent(0.75),
         deletionTextColorOverride: .secondaryLabelColor,
         unchangedTextColor: .labelColor,
         font: .systemFont(ofSize: 16, weight: .regular),
