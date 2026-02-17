@@ -20,9 +20,11 @@ struct DiffTextViewRepresentable: NSViewRepresentable {
     }
 
     func updateNSView(_ view: NSTextDiffView, context: Context) {
-        view.style = style
-        view.mode = mode
-        view.original = original
-        view.updated = updated
+        view.setContent(
+            original: original,
+            updated: updated,
+            style: style,
+            mode: mode
+        )
     }
 }

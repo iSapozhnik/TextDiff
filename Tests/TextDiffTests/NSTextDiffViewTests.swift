@@ -91,3 +91,53 @@ func nsTextDiffViewStyleChangeDoesNotRecomputeDiff() {
 
     #expect(callCount == 1)
 }
+
+@Test
+@MainActor
+func nsTextDiffViewSetContentBatchesRecompute() {
+    var callCount = 0
+    let view = NSTextDiffView(
+        original: "old",
+        updated: "new",
+        mode: .token
+    ) { _, _, _ in
+        callCount += 1
+        return [DiffSegment(kind: .equal, tokenKind: .word, text: "\(callCount)")]
+    }
+
+    var style = TextDiffStyle.default
+    style.deletionStrikethrough = true
+    view.setContent(
+        original: "old-2",
+        updated: "new-2",
+        style: style,
+        mode: .character
+    )
+
+    #expect(callCount == 2)
+}
+
+@Test
+@MainActor
+func nsTextDiffViewSetContentStyleOnlyDoesNotRecomputeDiff() {
+    var callCount = 0
+    let view = NSTextDiffView(
+        original: "old",
+        updated: "new",
+        mode: .token
+    ) { _, _, _ in
+        callCount += 1
+        return [DiffSegment(kind: .equal, tokenKind: .word, text: "\(callCount)")]
+    }
+
+    var style = TextDiffStyle.default
+    style.deletionStrikethrough = true
+    view.setContent(
+        original: "old",
+        updated: "new",
+        style: style,
+        mode: .token
+    )
+
+    #expect(callCount == 1)
+}

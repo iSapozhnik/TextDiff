@@ -9,7 +9,10 @@ public final class NSTextDiffView: NSView {
     /// Setting this value updates rendered diff output when content changes.
     public var original: String {
         didSet {
-            updateSegmentsIfNeeded()
+            guard !isBatchUpdating else {
+                return
+            }
+            _ = updateSegmentsIfNeeded()
         }
     }
 
@@ -17,7 +20,10 @@ public final class NSTextDiffView: NSView {
     /// Setting this value updates rendered diff output when content changes.
     public var updated: String {
         didSet {
-            updateSegmentsIfNeeded()
+            guard !isBatchUpdating else {
+                return
+            }
+            _ = updateSegmentsIfNeeded()
         }
     }
 
@@ -25,6 +31,10 @@ public final class NSTextDiffView: NSView {
     /// Setting this value redraws the view without recomputing diff segments.
     public var style: TextDiffStyle {
         didSet {
+            guard !isBatchUpdating else {
+                pendingStyleInvalidation = true
+                return
+            }
             invalidateCachedLayout()
         }
     }
@@ -33,7 +43,10 @@ public final class NSTextDiffView: NSView {
     /// Setting this value updates rendered diff output when mode changes.
     public var mode: TextDiffComparisonMode {
         didSet {
-            updateSegmentsIfNeeded()
+            guard !isBatchUpdating else {
+                return
+            }
+            _ = updateSegmentsIfNeeded()
         }
     }
 
@@ -43,6 +56,8 @@ public final class NSTextDiffView: NSView {
     private var lastOriginal: String
     private var lastUpdated: String
     private var lastModeKey: Int
+    private var isBatchUpdating = false
+    private var pendingStyleInvalidation = false
 
     private var cachedWidth: CGFloat = -1
     private var cachedLayout: DiffLayout?
@@ -83,6 +98,7 @@ public final class NSTextDiffView: NSView {
         super.init(frame: .zero)
     }
 
+    #if TESTING
     init(
         original: String,
         updated: String,
@@ -101,6 +117,7 @@ public final class NSTextDiffView: NSView {
         self.segments = diffProvider(original, updated, mode)
         super.init(frame: .zero)
     }
+    #endif
 
     @available(*, unavailable, message: "Use init(original:updated:style:mode:)")
     required init?(coder: NSCoder) {
@@ -133,10 +150,36 @@ public final class NSTextDiffView: NSView {
         }
     }
 
-    private func updateSegmentsIfNeeded() {
+    /// Atomically updates view inputs and recomputes diff segments at most once.
+    public func setContent(
+        original: String,
+        updated: String,
+        style: TextDiffStyle,
+        mode: TextDiffComparisonMode
+    ) {
+        isBatchUpdating = true
+        defer {
+            isBatchUpdating = false
+            let needsStyleInvalidation = pendingStyleInvalidation
+            pendingStyleInvalidation = false
+
+            let didRecompute = updateSegmentsIfNeeded()
+            if needsStyleInvalidation, !didRecompute {
+                invalidateCachedLayout()
+            }
+        }
+
+        self.style = style
+        self.mode = mode
+        self.original = original
+        self.updated = updated
+    }
+
+    @discardableResult
+    private func updateSegmentsIfNeeded() -> Bool {
         let newModeKey = Self.modeKey(for: mode)
         guard original != lastOriginal || updated != lastUpdated || newModeKey != lastModeKey else {
-            return
+            return false
         }
 
         lastOriginal = original
@@ -144,6 +187,7 @@ public final class NSTextDiffView: NSView {
         lastModeKey = newModeKey
         segments = diffProvider(original, updated, mode)
         invalidateCachedLayout()
+        return true
     }
 
     private func layoutForCurrentWidth() -> DiffLayout {
