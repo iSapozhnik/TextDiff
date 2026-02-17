@@ -1,6 +1,15 @@
 import Foundation
 
+/// A namespace that computes ordered diff segments between two strings.
 public enum TextDiffEngine {
+    /// Computes the diff between original and updated text.
+    ///
+    /// - Parameters:
+    ///   - original: The source text before edits.
+    ///   - updated: The source text after edits.
+    ///   - mode: The comparison mode used to produce diff segments.
+    /// - Returns: Ordered diff segments that describe unchanged, deleted, and inserted content.
+    ///   In `.character` mode, adjacent word replacements are refined by character.
     public static func diff(
         original: String,
         updated: String,

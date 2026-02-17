@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 
+/// A SwiftUI view that renders a merged visual diff between two strings.
 public struct TextDiffView: View {
     private let original: String
     private let updated: String
@@ -8,6 +9,13 @@ public struct TextDiffView: View {
     private let style: TextDiffStyle
     @StateObject private var model: TextDiffViewModel
 
+    /// Creates a text diff view for two versions of content.
+    ///
+    /// - Parameters:
+    ///   - original: The source text before edits.
+    ///   - updated: The source text after edits.
+    ///   - style: Visual style used to render additions, deletions, and unchanged text.
+    ///   - mode: Comparison mode that controls token-level or character-refined output.
     public init(
         original: String,
         updated: String,
@@ -23,6 +31,7 @@ public struct TextDiffView: View {
         )
     }
 
+    /// The view body that renders the current diff content.
     public var body: some View {
         DiffTextViewRepresentable(segments: model.segments, style: style)
             .accessibilityLabel("Text diff")
