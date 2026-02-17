@@ -14,6 +14,12 @@ let package = Package(
             name: "TextDiff",
             targets: ["TextDiff"]),
     ],
+    dependencies: [
+        .package(
+            url: "https://github.com/pointfreeco/swift-snapshot-testing",
+            from: "1.18.9"
+        )
+    ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
         // Targets can depend on other targets in this package and products from dependencies.
@@ -21,7 +27,10 @@ let package = Package(
             name: "TextDiff"),
         .testTarget(
             name: "TextDiffTests",
-            dependencies: ["TextDiff"]
+            dependencies: [
+                "TextDiff",
+                .product(name: "SnapshotTesting", package: "swift-snapshot-testing")
+            ]
         ),
     ]
 )

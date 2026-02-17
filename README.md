@@ -100,3 +100,24 @@ struct StyledDemoView: View {
 - Chip top/bottom clipping is prevented internally via explicit line-height and vertical content insets.
 - Moved text is not detected as a move; it appears as delete + insert.
 - Rendering uses a custom AppKit draw view bridged into SwiftUI.
+
+## Snapshot Testing
+
+Snapshot coverage uses [Point-Free SnapshotTesting](https://github.com/pointfreeco/swift-snapshot-testing) with `swift-testing`.
+
+- Snapshot tests live in `Tests/TextDiffTests/TextDiffSnapshotTests.swift`.
+- Baselines are stored under `Tests/TextDiffTests/__Snapshots__/TextDiffSnapshotTests/`.
+- The suite uses `@Suite(.snapshots(record: .missing))` to record only missing baselines.
+
+Run all tests:
+
+```bash
+swift test 2>&1 | xcsift --quiet
+```
+
+Update baselines intentionally:
+
+1. Temporarily switch the suite trait in `Tests/TextDiffTests/TextDiffSnapshotTests.swift` from `.missing` to `.all`.
+2. Run `swift test 2>&1 | xcsift --quiet` once to rewrite baselines.
+3. Switch the suite trait back to `.missing`.
+4. Review snapshot image diffs in your PR before merging.
