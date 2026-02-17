@@ -86,7 +86,7 @@ func nsTextDiffViewStyleChangeDoesNotRecomputeDiff() {
     }
 
     var style = TextDiffStyle.default
-    style.deletionStrikethrough = true
+    style.removalsStyle.strikethrough = true
     view.style = style
 
     #expect(callCount == 1)
@@ -106,7 +106,7 @@ func nsTextDiffViewSetContentBatchesRecompute() {
     }
 
     var style = TextDiffStyle.default
-    style.deletionStrikethrough = true
+    style.removalsStyle.strikethrough = true
     view.setContent(
         original: "old-2",
         updated: "new-2",
@@ -131,7 +131,7 @@ func nsTextDiffViewSetContentStyleOnlyDoesNotRecomputeDiff() {
     }
 
     var style = TextDiffStyle.default
-    style.deletionStrikethrough = true
+    style.removalsStyle.strikethrough = true
     view.setContent(
         original: "old",
         updated: "new",

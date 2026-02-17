@@ -169,6 +169,46 @@ func defaultStyleInterChipSpacingMatchesCurrentDefault() {
 }
 
 @Test
+func textDiffStyleDefaultUsesDefaultAdditionAndRemovalStyles() {
+    let style = TextDiffStyle.default
+    expectColorEqual(style.additionsStyle.fillColor, TextDiffChangeStyle.defaultAddition.fillColor)
+    expectColorEqual(style.additionsStyle.strokeColor, TextDiffChangeStyle.defaultAddition.strokeColor)
+    expectColorEqual(style.removalsStyle.fillColor, TextDiffChangeStyle.defaultRemoval.fillColor)
+    expectColorEqual(style.removalsStyle.strokeColor, TextDiffChangeStyle.defaultRemoval.strokeColor)
+}
+
+@Test
+func textDiffStyleProtocolInitConvertsCustomConformers() {
+    let additions = TestStyling(
+        fillColor: .systemTeal,
+        strokeColor: .systemCyan,
+        textColorOverride: .black,
+        strikethrough: false
+    )
+    let removals = TestStyling(
+        fillColor: .systemOrange,
+        strokeColor: .systemBrown,
+        textColorOverride: .white,
+        strikethrough: true
+    )
+
+    let style = TextDiffStyle(
+        additionsStyle: additions,
+        removalsStyle: removals
+    )
+
+    expectColorEqual(style.additionsStyle.fillColor, additions.fillColor)
+    expectColorEqual(style.additionsStyle.strokeColor, additions.strokeColor)
+    expectColorEqual(style.additionsStyle.textColorOverride ?? .clear, additions.textColorOverride ?? .clear)
+    #expect(style.additionsStyle.strikethrough == additions.strikethrough)
+
+    expectColorEqual(style.removalsStyle.fillColor, removals.fillColor)
+    expectColorEqual(style.removalsStyle.strokeColor, removals.strokeColor)
+    expectColorEqual(style.removalsStyle.textColorOverride ?? .clear, removals.textColorOverride ?? .clear)
+    #expect(style.removalsStyle.strikethrough == removals.strikethrough)
+}
+
+@Test
 func layouterEnforcesGapForAdjacentChangedLexicalRuns() {
     var style = TextDiffStyle.default
     style.interChipSpacing = 4
@@ -275,6 +315,23 @@ func layouterWrapsByTokenAndRespectsExplicitNewlines() {
 }
 
 @Test
+func layouterUsesRemovalStrikethroughFromRemovalStyle() throws {
+    var style = TextDiffStyle.default
+    style.removalsStyle.strikethrough = true
+
+    let layout = DiffTokenLayouter.layout(
+        segments: [DiffSegment(kind: .delete, tokenKind: .word, text: "old")],
+        style: style,
+        availableWidth: 500,
+        contentInsets: zeroInsets
+    )
+
+    let run = try #require(layout.runs.first)
+    let value = run.attributedText.attribute(.strikethroughStyle, at: 0, effectiveRange: nil) as? Int
+    #expect(value == NSUnderlineStyle.single.rawValue)
+}
+
+@Test
 func verticalInsetScalesWithChipInsets() {
     #expect(DiffTextLayoutMetrics.verticalTextInset(for: .default) == 3)
 
@@ -298,6 +355,27 @@ func lineHeightUsesConfigurableLineSpacing() {
 
 private func joinedText(_ segments: [DiffSegment]) -> String {
     segments.map(\.text).joined()
+}
+
+private func expectColorEqual(_ lhs: NSColor, _ rhs: NSColor, tolerance: CGFloat = 0.0001) {
+    let left = rgba(lhs)
+    let right = rgba(rhs)
+    #expect(abs(left.0 - right.0) <= tolerance)
+    #expect(abs(left.1 - right.1) <= tolerance)
+    #expect(abs(left.2 - right.2) <= tolerance)
+    #expect(abs(left.3 - right.3) <= tolerance)
+}
+
+private func rgba(_ color: NSColor) -> (CGFloat, CGFloat, CGFloat, CGFloat) {
+    let rgb = color.usingColorSpace(.deviceRGB) ?? color
+    return (rgb.redComponent, rgb.greenComponent, rgb.blueComponent, rgb.alphaComponent)
+}
+
+private struct TestStyling: TextDiffStyling {
+    let fillColor: NSColor
+    let strokeColor: NSColor
+    let textColorOverride: NSColor?
+    let strikethrough: Bool
 }
 
 private let zeroInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)

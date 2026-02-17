@@ -50,17 +50,21 @@ public struct TextDiffView: View {
 
 #Preview("TextDiffView") {
     let style = TextDiffStyle(
-        additionFillColor: .systemGreen.withAlphaComponent(0.28),
-        additionStrokeColor: .systemGreen.withAlphaComponent(0.75),
-        additionTextColorOverride: .labelColor,
-        deletionFillColor: .systemRed.withAlphaComponent(0.24),
-        deletionStrokeColor: .systemRed.withAlphaComponent(0.75),
-        deletionTextColorOverride: .secondaryLabelColor,
-        unchangedTextColor: .labelColor,
+        additionsStyle: TextDiffChangeStyle(
+            fillColor: .systemGreen.withAlphaComponent(0.28),
+            strokeColor: .systemGreen.withAlphaComponent(0.75),
+            textColorOverride: .labelColor
+        ),
+        removalsStyle: TextDiffChangeStyle(
+            fillColor: .systemRed.withAlphaComponent(0.24),
+            strokeColor: .systemRed.withAlphaComponent(0.75),
+            textColorOverride: .secondaryLabelColor,
+            strikethrough: true
+        ),
+        textColor: .labelColor,
         font: .systemFont(ofSize: 16, weight: .regular),
         chipCornerRadius: 3,
         chipInsets: NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0),
-        deletionStrikethrough: true,
         interChipSpacing: 1,
         lineSpacing: 2
     )
