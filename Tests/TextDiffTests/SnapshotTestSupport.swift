@@ -3,6 +3,9 @@ import SnapshotTesting
 import SwiftUI
 import TextDiff
 
+private let snapshotPrecision: Float = 0.995
+private let snapshotPerceptualPrecision: Float = 0.98
+
 @MainActor
 func assertTextDiffSnapshot(
     original: String,
@@ -35,7 +38,10 @@ func assertTextDiffSnapshot(
 
     assertSnapshot(
         of: snapshotImage,
-        as: .image,
+        as: .image(
+            precision: snapshotPrecision,
+            perceptualPrecision: snapshotPerceptualPrecision
+        ),
         named: name,
         fileID: fileID,
         file: filePath,
