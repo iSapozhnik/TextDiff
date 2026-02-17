@@ -27,7 +27,11 @@ func assertTextDiffSnapshot(
         mode: mode
     )
     .frame(width: size.width, height: size.height, alignment: .topLeading)
-    .background(Color.white)
+    .background(Color(red: 1, green: 1, blue: 0.95))
+    .overlay(
+        Rectangle()
+            .stroke(Color.blue, lineWidth: 1)
+    )
 
     let hostingView = NSHostingView(rootView: rootView)
     hostingView.frame = CGRect(origin: .zero, size: size)
