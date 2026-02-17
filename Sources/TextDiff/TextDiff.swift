@@ -1,2 +1,1 @@
-// The Swift Programming Language
-// https://docs.swift.org/swift-book
+// TextDiff public API is split across dedicated files.
