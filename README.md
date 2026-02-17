@@ -87,15 +87,19 @@ import SwiftUI
 import TextDiff
 
 let customStyle = TextDiffStyle(
-    additionFillColor: NSColor.systemGreen.withAlphaComponent(0.28),
-    additionStrokeColor: NSColor.systemGreen.withAlphaComponent(0.75),
-    deletionFillColor: NSColor.systemRed.withAlphaComponent(0.24),
-    deletionStrokeColor: NSColor.systemRed.withAlphaComponent(0.75),
-    unchangedTextColor: .labelColor,
+    additionsStyle: TextDiffChangeStyle(
+        fillColor: NSColor.systemGreen.withAlphaComponent(0.28),
+        strokeColor: NSColor.systemGreen.withAlphaComponent(0.75)
+    ),
+    removalsStyle: TextDiffChangeStyle(
+        fillColor: NSColor.systemRed.withAlphaComponent(0.24),
+        strokeColor: NSColor.systemRed.withAlphaComponent(0.75),
+        strikethrough: true
+    ),
+    textColor: .labelColor,
     font: .monospacedSystemFont(ofSize: 15, weight: .regular),
     chipCornerRadius: 5,
     chipInsets: NSEdgeInsets(top: 1, left: 3, bottom: 1, right: 3),
-    deletionStrikethrough: true,
     interChipSpacing: 4,
     lineSpacing: 2
 )
@@ -110,6 +114,8 @@ struct StyledDemoView: View {
     }
 }
 ```
+
+Change-specific colors and text treatment live under `additionsStyle` and `removalsStyle`. Shared layout and typography stay on `TextDiffStyle` (`font`, `chipInsets`, `interChipSpacing`, `lineSpacing`, etc.).
 
 ## Behavior Notes
 

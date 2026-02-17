@@ -69,7 +69,7 @@ struct TextDiffSnapshotTests {
     @Test
     func custom_style_spacing_strikethrough() {
         var style = TextDiffStyle.default
-        style.deletionStrikethrough = true
+        style.removalsStyle.strikethrough = true
         style.interChipSpacing = 1
 
         assertTextDiffSnapshot(

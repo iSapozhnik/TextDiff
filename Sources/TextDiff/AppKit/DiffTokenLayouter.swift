@@ -139,7 +139,7 @@ enum DiffTokenLayouter {
             .foregroundColor: textColor(for: segment, style: style)
         ]
 
-        if style.deletionStrikethrough, segment.kind == .delete, segment.tokenKind != .whitespace {
+        if style.removalsStyle.strikethrough, segment.kind == .delete, segment.tokenKind != .whitespace {
             attributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue
         }
 
@@ -163,26 +163,26 @@ enum DiffTokenLayouter {
     private static func textColor(for segment: DiffSegment, style: TextDiffStyle) -> NSColor {
         switch segment.kind {
         case .equal:
-            return style.unchangedTextColor
+            return style.textColor
         case .delete:
-            if let override = style.deletionTextColorOverride {
+            if let override = style.removalsStyle.textColorOverride {
                 return override
             }
-            return adaptiveChipTextColor(for: style.deletionFillColor)
+            return adaptiveChipTextColor(for: style.removalsStyle.fillColor)
         case .insert:
-            if let override = style.additionTextColorOverride {
+            if let override = style.additionsStyle.textColorOverride {
                 return override
             }
-            return adaptiveChipTextColor(for: style.additionFillColor)
+            return adaptiveChipTextColor(for: style.additionsStyle.fillColor)
         }
     }
 
     private static func chipFillColorForOperation(_ kind: DiffOperationKind, style: TextDiffStyle) -> NSColor? {
         switch kind {
         case .delete:
-            return style.deletionFillColor
+            return style.removalsStyle.fillColor
         case .insert:
-            return style.additionFillColor
+            return style.additionsStyle.fillColor
         case .equal:
             return nil
         }
@@ -191,9 +191,9 @@ enum DiffTokenLayouter {
     private static func chipStrokeColorForOperation(_ kind: DiffOperationKind, style: TextDiffStyle) -> NSColor? {
         switch kind {
         case .delete:
-            return style.deletionStrokeColor
+            return style.removalsStyle.strokeColor
         case .insert:
-            return style.additionStrokeColor
+            return style.additionsStyle.strokeColor
         case .equal:
             return nil
         }
