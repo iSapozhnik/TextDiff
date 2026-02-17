@@ -7,7 +7,6 @@ public struct TextDiffView: View {
     private let updated: String
     private let mode: TextDiffComparisonMode
     private let style: TextDiffStyle
-    @StateObject private var model: TextDiffViewModel
 
     /// Creates a text diff view for two versions of content.
     ///
@@ -26,33 +25,17 @@ public struct TextDiffView: View {
         self.updated = updated
         self.mode = mode
         self.style = style
-        _model = StateObject(
-            wrappedValue: TextDiffViewModel(original: original, updated: updated, mode: mode)
-        )
     }
 
     /// The view body that renders the current diff content.
     public var body: some View {
-        DiffTextViewRepresentable(segments: model.segments, style: style)
+        DiffTextViewRepresentable(
+            original: original,
+            updated: updated,
+            style: style,
+            mode: mode
+        )
             .accessibilityLabel("Text diff")
-            .onChange(of: original) { _, _ in
-                model.updateIfNeeded(original: original, updated: updated, mode: mode)
-            }
-            .onChange(of: updated) { _, _ in
-                model.updateIfNeeded(original: original, updated: updated, mode: mode)
-            }
-            .onChange(of: modeKey) { _, _ in
-                model.updateIfNeeded(original: original, updated: updated, mode: mode)
-            }
-    }
-
-    private var modeKey: Int {
-        switch mode {
-        case .token:
-            return 0
-        case .character:
-            return 1
-        }
     }
 }
 

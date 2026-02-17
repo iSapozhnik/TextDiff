@@ -52,6 +52,54 @@ func assertTextDiffSnapshot(
 }
 
 @MainActor
+func assertNSTextDiffSnapshot(
+    original: String,
+    updated: String,
+    mode: TextDiffComparisonMode = .token,
+    style: TextDiffStyle = .default,
+    size: CGSize,
+    named name: String? = nil,
+    fileID: StaticString = #fileID,
+    filePath: StaticString = #filePath,
+    testName: String = #function,
+    line: UInt = #line,
+    column: UInt = #column
+) {
+    let diffView = NSTextDiffView(
+        original: original,
+        updated: updated,
+        style: style,
+        mode: mode
+    )
+
+    let container = NSView(frame: CGRect(origin: .zero, size: size))
+    container.wantsLayer = true
+    container.layer?.backgroundColor = NSColor.white.cgColor
+    container.appearance = NSAppearance(named: .aqua)
+
+    diffView.frame = container.bounds
+    diffView.autoresizingMask = [.width, .height]
+    container.addSubview(diffView)
+    container.layoutSubtreeIfNeeded()
+
+    let snapshotImage = renderSnapshotImage1x(view: container, size: size)
+
+    assertSnapshot(
+        of: snapshotImage,
+        as: .image(
+            precision: snapshotPrecision,
+            perceptualPrecision: snapshotPerceptualPrecision
+        ),
+        named: name,
+        fileID: fileID,
+        file: filePath,
+        testName: testName,
+        line: line,
+        column: column
+    )
+}
+
+@MainActor
 private func renderSnapshotImage1x(view: NSView, size: CGSize) -> NSImage {
     let rep = NSBitmapImageRep(
         bitmapDataPlanes: nil,

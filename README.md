@@ -1,6 +1,6 @@
 # TextDiff
 
-TextDiff is a macOS Swift package that computes token-level diffs and renders a merged, display-only SwiftUI view backed by a custom AppKit renderer.
+TextDiff is a macOS Swift package that computes token-level diffs and renders a merged, display-only diff view for both SwiftUI (`TextDiffView`) and AppKit (`NSTextDiffView`) via the same custom AppKit renderer.
 
 ![TextDiff preview](Resources/textdiff-preview.png)
 
@@ -41,6 +41,30 @@ struct DemoView: View {
         .padding()
     }
 }
+```
+
+## AppKit Usage
+
+```swift
+import AppKit
+import TextDiff
+
+let diffView = NSTextDiffView(
+    original: "This is teh old sentence.",
+    updated: "This is the updated sentence!",
+    mode: .token
+)
+
+// Constrain width in your layout. Height is intrinsic and computed from width.
+diffView.translatesAutoresizingMaskIntoConstraints = false
+```
+
+You can update content in place:
+
+```swift
+diffView.mode = .character
+diffView.original = "Add a diff"
+diffView.updated = "Added a diff"
 ```
 
 ## Comparison Modes
@@ -101,14 +125,15 @@ struct StyledDemoView: View {
 - No synthetic spacer characters are inserted into the rendered text stream.
 - Chip top/bottom clipping is prevented internally via explicit line-height and vertical content insets.
 - Moved text is not detected as a move; it appears as delete + insert.
-- Rendering uses a custom AppKit draw view bridged into SwiftUI.
+- Rendering uses a custom AppKit draw view shared by both `TextDiffView` and `NSTextDiffView`.
 
 ## Snapshot Testing
 
 Snapshot coverage uses [Point-Free SnapshotTesting](https://github.com/pointfreeco/swift-snapshot-testing) with `swift-testing`.
 
 - Snapshot tests live in `Tests/TextDiffTests/TextDiffSnapshotTests.swift`.
-- Baselines are stored under `Tests/TextDiffTests/__Snapshots__/TextDiffSnapshotTests/`.
+- AppKit snapshot tests live in `Tests/TextDiffTests/NSTextDiffSnapshotTests.swift`.
+- Baselines are stored under `Tests/TextDiffTests/__Snapshots__/TextDiffSnapshotTests/` and `Tests/TextDiffTests/__Snapshots__/NSTextDiffSnapshotTests/`.
 - The suite uses `@Suite(.snapshots(record: .missing))` to record only missing baselines.
 
 Run all tests:
@@ -119,7 +144,7 @@ swift test 2>&1 | xcsift --quiet
 
 Update baselines intentionally:
 
-1. Temporarily switch the suite trait in `Tests/TextDiffTests/TextDiffSnapshotTests.swift` from `.missing` to `.all`.
+1. Temporarily switch the suite trait in snapshot suites (for example, `Tests/TextDiffTests/TextDiffSnapshotTests.swift` and `Tests/TextDiffTests/NSTextDiffSnapshotTests.swift`) from `.missing` to `.all`.
 2. Run `swift test 2>&1 | xcsift --quiet` once to rewrite baselines.
 3. Switch the suite trait back to `.missing`.
 4. Review snapshot image diffs in your PR before merging.
