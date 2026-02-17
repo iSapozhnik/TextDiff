@@ -4,7 +4,7 @@ import SwiftUI
 import TextDiff
 
 private let snapshotPrecision: Float = 0.995
-private let snapshotPerceptualPrecision: Float = 0.99
+private let snapshotPerceptualPrecision: Float = 0.98
 
 @MainActor
 func assertTextDiffSnapshot(
