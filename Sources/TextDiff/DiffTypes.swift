@@ -12,6 +12,11 @@ public enum DiffOperationKind: Sendable {
     case insert
 }
 
+public enum TextDiffComparisonMode: Sendable {
+    case token
+    case character
+}
+
 public struct DiffSegment: Sendable, Equatable {
     public let kind: DiffOperationKind
     public let tokenKind: DiffTokenKind

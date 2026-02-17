@@ -91,6 +91,79 @@ func multilingualInputProducesStableOutput() {
 }
 
 @Test
+func defaultModeMatchesTokenModeOutput() {
+    let original = "Add a diff"
+    let updated = "Added a diff"
+
+    let implicitDefault = TextDiffEngine.diff(original: original, updated: updated)
+    let explicitToken = TextDiffEngine.diff(original: original, updated: updated, mode: .token)
+
+    #expect(implicitDefault == explicitToken)
+}
+
+@Test
+func characterModeRefinesWordSuffixInsertion() {
+    let segments = TextDiffEngine.diff(original: "Add", updated: "Added", mode: .character)
+
+    #expect(segments.contains { $0.kind == .equal && $0.tokenKind == .word && $0.text == "Add" })
+    #expect(segments.contains { $0.kind == .insert && $0.tokenKind == .word && $0.text == "ed" })
+    #expect(!segments.contains { $0.kind == .delete && $0.tokenKind == .word })
+}
+
+@Test
+func characterModeRefinesWordMiddleSubstitution() {
+    let segments = TextDiffEngine.diff(original: "cat", updated: "cut", mode: .character)
+
+    #expect(segments.contains { $0.kind == .equal && $0.tokenKind == .word && $0.text == "c" })
+    #expect(segments.contains { $0.kind == .delete && $0.tokenKind == .word && $0.text == "a" })
+    #expect(segments.contains { $0.kind == .insert && $0.tokenKind == .word && $0.text == "u" })
+    #expect(segments.contains { $0.kind == .equal && $0.tokenKind == .word && $0.text == "t" })
+}
+
+@Test
+func characterModeKeepsNoCommonWordAsDeletesAndInserts() {
+    let segments = TextDiffEngine.diff(original: "brown", updated: "sky", mode: .character)
+
+    #expect(segments.contains { $0.kind == .delete && $0.tokenKind == .word })
+    #expect(segments.contains { $0.kind == .insert && $0.tokenKind == .word })
+    #expect(!segments.contains { $0.kind == .equal && $0.tokenKind == .word })
+}
+
+@Test
+func characterModeDoesNotRefinePunctuation() {
+    let segments = TextDiffEngine.diff(original: "dog.", updated: "dog!", mode: .character)
+
+    #expect(segments.contains { $0.kind == .equal && $0.tokenKind == .word && $0.text == "dog" })
+    #expect(segments.contains { $0.kind == .delete && $0.tokenKind == .punctuation && $0.text == "." })
+    #expect(segments.contains { $0.kind == .insert && $0.tokenKind == .punctuation && $0.text == "!" })
+}
+
+@Test
+func characterModePreservesWhitespaceBehavior() {
+    let updated = "Hello world\n"
+    let segments = TextDiffEngine.diff(original: "Hello   world", updated: updated, mode: .character)
+
+    #expect(joinedText(segments) == updated)
+    #expect(segments.filter { $0.tokenKind == .whitespace }.allSatisfy { $0.kind == .equal })
+}
+
+@Test
+func characterModeHandlesComposedCharactersSafely() {
+    let segments = TextDiffEngine.diff(original: "naïve", updated: "naïves", mode: .character)
+
+    #expect(segments.contains { $0.kind == .equal && $0.tokenKind == .word && $0.text == "naïve" })
+    #expect(segments.contains { $0.kind == .insert && $0.tokenKind == .word && $0.text == "s" })
+}
+
+@Test
+func characterModeIsDeterministicForRepeatedCharacterTieCases() {
+    let first = TextDiffEngine.diff(original: "aaaa", updated: "aa", mode: .character)
+    let second = TextDiffEngine.diff(original: "aaaa", updated: "aa", mode: .character)
+
+    #expect(first == second)
+}
+
+@Test
 func defaultStyleInterChipSpacingMatchesCurrentDefault() {
     #expect(TextDiffStyle.default.interChipSpacing == 0)
 }

@@ -33,12 +33,26 @@ struct DemoView: View {
     var body: some View {
         TextDiffView(
             original: "This is teh old sentence.",
-            updated: "This is the updated sentence!"
+            updated: "This is the updated sentence!",
+            mode: .token
         )
         .padding()
     }
 }
 ```
+
+## Comparison Modes
+
+```swift
+TextDiffView(
+    original: "Add",
+    updated: "Added",
+    mode: .character
+)
+```
+
+- `.token` (default): token-level diff behavior.
+- `.character`: refines adjacent word replacements by character so shared parts remain unchanged text (for example `Add` -> `Added` shows unchanged `Add` and inserted `ed`).
 
 ## Custom Styling
 
@@ -75,9 +89,10 @@ struct StyledDemoView: View {
 - Tokenization uses `NLTokenizer` (`.word`) and reconstructs punctuation/whitespace by filling range gaps.
 - Matching is exact (case-sensitive and punctuation-sensitive).
 - Replacements are rendered as adjacent delete then insert segments.
+- Character mode refines adjacent word replacements only; punctuation and whitespace keep token-level behavior.
 - Whitespace changes preserve the `updated` layout and stay visually neutral (no chips).
 - Rendering is display-only (not selectable) to keep chip geometry deterministic.
-- Default `interChipSpacing` is `4`, applied between adjacent changed lexical chips (words or punctuation).
+- `interChipSpacing` controls spacing between adjacent changed lexical chips (words or punctuation).
 - Chip horizontal padding is preserved with a minimum effective floor of 3pt per side.
 - No synthetic spacer characters are inserted into the rendered text stream.
 - Chip top/bottom clipping is prevented internally via explicit line-height and vertical content insets.
