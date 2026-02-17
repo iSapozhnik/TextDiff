@@ -35,7 +35,7 @@ jobs:
     timeout-minutes: 20
     continue-on-error: true
     env:
-      SNAPSHOT_ARTIFACTS: ${{ github.workspace }}/.snapshot-artifacts
+      SNAPSHOT_ARTIFACTS: ${{ github.workspace }}/snapshot-artifacts
     steps:
       - name: Checkout
         uses: actions/checkout@v4
