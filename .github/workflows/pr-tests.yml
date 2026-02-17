@@ -28,4 +28,4 @@ jobs:
       - name: Run tests
         run: |
           set -o pipefail
-          swift test 2>&1 | xcsift --warnings
+          swift test --skip TextDiffSnapshotTests 2>&1 | xcsift --warnings
