@@ -2,6 +2,8 @@
 
 TextDiff is a macOS Swift package that computes token-level diffs and renders a merged, display-only SwiftUI view backed by a custom AppKit renderer.
 
+![TextDiff preview](Resources/textdiff-preview.png)
+
 ## Requirements
 
 - macOS 14+
