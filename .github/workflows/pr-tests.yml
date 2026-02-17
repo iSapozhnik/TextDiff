@@ -34,6 +34,8 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 20
     continue-on-error: true
+    env:
+      SNAPSHOT_ARTIFACTS: ${{ github.workspace }}/.snapshot-artifacts
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -49,4 +51,14 @@ jobs:
       - name: Run snapshot tests
         run: |
           set -o pipefail
-          swift test --filter TextDiffSnapshotTests 2>&1 | xcsift --warnings
+          mkdir -p "$SNAPSHOT_ARTIFACTS"
+          swift test --filter TextDiffSnapshotTests 2>&1 | tee "$SNAPSHOT_ARTIFACTS/swift-test.log" | xcsift --warnings
+
+      - name: Upload snapshot artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: snapshot-artifacts
+          path: ${{ env.SNAPSHOT_ARTIFACTS }}
+          if-no-files-found: warn
+          retention-days: 7
