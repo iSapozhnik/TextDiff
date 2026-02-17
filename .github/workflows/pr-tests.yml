@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  core-tests:
     runs-on: macos-latest
     timeout-minutes: 20
     steps:
@@ -29,3 +29,24 @@ jobs:
         run: |
           set -o pipefail
           swift test --skip TextDiffSnapshotTests 2>&1 | xcsift --warnings
+
+  snapshot-tests:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select latest stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "latest-stable"
+
+      - name: Install xcsift
+        run: brew install xcsift
+
+      - name: Run snapshot tests
+        run: |
+          set -o pipefail
+          swift test --filter TextDiffSnapshotTests 2>&1 | xcsift --warnings
