@@ -13,7 +13,7 @@ Add TextDiff as a Swift Package dependency in Xcode or in `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/your-org/TextDiff.git", branch: "main")
+    .package(url: "https://github.com/iSapozhnik/TextDiff.git", from: "1.0.0")
 ]
 ```
 
