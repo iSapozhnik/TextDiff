@@ -33,7 +33,6 @@ jobs:
   snapshot-tests:
     runs-on: macos-latest
     timeout-minutes: 20
-    continue-on-error: true
     env:
       SNAPSHOT_ARTIFACTS: ${{ github.workspace }}/snapshot-artifacts
     steps:
