@@ -18,6 +18,8 @@ public struct TextDiffStyle: @unchecked Sendable {
     public var deletionStrikethrough: Bool
     /// Minimum visual gap between adjacent changed lexical chips (word or punctuation).
     public var interChipSpacing: CGFloat
+    /// Additional vertical spacing between wrapped lines.
+    public var lineSpacing: CGFloat
 
     public init(
         additionFillColor: NSColor,
@@ -31,7 +33,8 @@ public struct TextDiffStyle: @unchecked Sendable {
         chipCornerRadius: CGFloat = 4,
         chipInsets: NSEdgeInsets = NSEdgeInsets(top: 1, left: 3, bottom: 1, right: 3),
         deletionStrikethrough: Bool = false,
-        interChipSpacing: CGFloat = 0
+        interChipSpacing: CGFloat = 0,
+        lineSpacing: CGFloat = 2
     ) {
         self.additionFillColor = additionFillColor
         self.additionStrokeColor = additionStrokeColor
@@ -45,6 +48,7 @@ public struct TextDiffStyle: @unchecked Sendable {
         self.chipInsets = chipInsets
         self.deletionStrikethrough = deletionStrikethrough
         self.interChipSpacing = interChipSpacing
+        self.lineSpacing = lineSpacing
     }
 
     public static let `default` = TextDiffStyle(

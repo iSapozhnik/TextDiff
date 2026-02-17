@@ -70,7 +70,8 @@ let customStyle = TextDiffStyle(
     chipCornerRadius: 5,
     chipInsets: NSEdgeInsets(top: 1, left: 3, bottom: 1, right: 3),
     deletionStrikethrough: true,
-    interChipSpacing: 4
+    interChipSpacing: 4,
+    lineSpacing: 2
 )
 
 struct StyledDemoView: View {
@@ -93,6 +94,7 @@ struct StyledDemoView: View {
 - Whitespace changes preserve the `updated` layout and stay visually neutral (no chips).
 - Rendering is display-only (not selectable) to keep chip geometry deterministic.
 - `interChipSpacing` controls spacing between adjacent changed lexical chips (words or punctuation).
+- `lineSpacing` controls vertical spacing between wrapped lines.
 - Chip horizontal padding is preserved with a minimum effective floor of 3pt per side.
 - No synthetic spacer characters are inserted into the rendered text stream.
 - Chip top/bottom clipping is prevented internally via explicit line-height and vertical content insets.

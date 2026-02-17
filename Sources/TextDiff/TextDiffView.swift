@@ -2,8 +2,11 @@ import AppKit
 import SwiftUI
 
 public struct TextDiffView: View {
-    private let segments: [DiffSegment]
+    private let original: String
+    private let updated: String
+    private let mode: TextDiffComparisonMode
     private let style: TextDiffStyle
+    @StateObject private var model: TextDiffViewModel
 
     public init(
         original: String,
@@ -11,13 +14,36 @@ public struct TextDiffView: View {
         style: TextDiffStyle = .default,
         mode: TextDiffComparisonMode = .token
     ) {
-        self.segments = TextDiffEngine.diff(original: original, updated: updated, mode: mode)
+        self.original = original
+        self.updated = updated
+        self.mode = mode
         self.style = style
+        _model = StateObject(
+            wrappedValue: TextDiffViewModel(original: original, updated: updated, mode: mode)
+        )
     }
 
     public var body: some View {
-        DiffTextViewRepresentable(segments: segments, style: style)
+        DiffTextViewRepresentable(segments: model.segments, style: style)
             .accessibilityLabel("Text diff")
+            .onChange(of: original) { _, _ in
+                model.updateIfNeeded(original: original, updated: updated, mode: mode)
+            }
+            .onChange(of: updated) { _, _ in
+                model.updateIfNeeded(original: original, updated: updated, mode: mode)
+            }
+            .onChange(of: modeKey) { _, _ in
+                model.updateIfNeeded(original: original, updated: updated, mode: mode)
+            }
+    }
+
+    private var modeKey: Int {
+        switch mode {
+        case .token:
+            return 0
+        case .character:
+            return 1
+        }
     }
 }
 
@@ -43,7 +69,8 @@ public struct TextDiffView: View {
         chipCornerRadius: 3,
         chipInsets: NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0),
         deletionStrikethrough: true,
-        interChipSpacing: 1
+        interChipSpacing: 1,
+        lineSpacing: 2
     )
     VStack(alignment: .leading, spacing: 4) {
         Text("Diff by characters")

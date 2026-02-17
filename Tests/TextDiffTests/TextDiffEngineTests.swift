@@ -283,6 +283,19 @@ func verticalInsetScalesWithChipInsets() {
     #expect(DiffTextLayoutMetrics.verticalTextInset(for: style) == 8)
 }
 
+@Test
+func lineHeightUsesConfigurableLineSpacing() {
+    var compact = TextDiffStyle.default
+    compact.lineSpacing = 0
+
+    var roomy = TextDiffStyle.default
+    roomy.lineSpacing = 6
+
+    let compactHeight = DiffTextLayoutMetrics.lineHeight(for: compact)
+    let roomyHeight = DiffTextLayoutMetrics.lineHeight(for: roomy)
+    #expect(roomyHeight - compactHeight >= 6 - 0.0001)
+}
+
 private func joinedText(_ segments: [DiffSegment]) -> String {
     segments.map(\.text).joined()
 }
