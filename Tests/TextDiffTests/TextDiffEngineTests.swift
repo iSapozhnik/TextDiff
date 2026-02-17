@@ -165,7 +165,7 @@ func characterModeIsDeterministicForRepeatedCharacterTieCases() {
 
 @Test
 func defaultStyleInterChipSpacingMatchesCurrentDefault() {
-    #expect(TextDiffStyle.default.interChipSpacing == 0)
+    #expect(TextDiffStyle.default.interChipSpacing == 999)
 }
 
 @Test
