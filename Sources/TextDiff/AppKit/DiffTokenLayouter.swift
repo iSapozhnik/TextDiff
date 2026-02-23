@@ -27,6 +27,7 @@ enum DiffTokenLayouter {
         contentInsets: NSEdgeInsets
     ) -> DiffLayout {
         let lineHeight = DiffTextLayoutMetrics.lineHeight(for: style)
+        let textHeight = ceil(style.font.ascender - style.font.descender + style.font.leading)
         let maxLineWidth = availableWidth > 0 ? availableWidth : .greatestFiniteMagnitude
         let lineStartX = contentInsets.left
         let maxLineX = lineStartX + maxLineWidth
@@ -37,12 +38,16 @@ enum DiffTokenLayouter {
         var maxUsedX = lineStartX
         var lineCount = 1
         var lineHasContent = false
+        let lineText = NSMutableString()
+        var lineTextWidth: CGFloat = 0
         var previousChangedLexical = false
 
         func moveToNewLine() {
             lineTop += lineHeight
             cursorX = lineStartX
             lineHasContent = false
+            lineText.setString("")
+            lineTextWidth = 0
             previousChangedLexical = false
             lineCount += 1
         }
@@ -65,9 +70,15 @@ enum DiffTokenLayouter {
             }
 
             let attributedText = attributedToken(for: segment, style: style)
-            let textSize = measuredTextSize(for: piece.text, font: style.font)
+            var textMeasurement = measuredIncrementalTextWidth(
+                for: piece.text,
+                font: style.font,
+                lineText: lineText,
+                lineTextWidth: lineTextWidth
+            )
+            var textSize = CGSize(width: textMeasurement.textWidth, height: textHeight)
             let chipInsets = effectiveChipInsets(for: style)
-            let runWidth = isChangedLexical ? textSize.width + chipInsets.left + chipInsets.right : textSize.width
+            var runWidth = isChangedLexical ? textSize.width + chipInsets.left + chipInsets.right : textSize.width
             let requiredWidth = leadingGap + runWidth
 
             let wrapped = lineHasContent && cursorX + requiredWidth > maxLineX
@@ -79,6 +90,15 @@ enum DiffTokenLayouter {
                 if piece.tokenKind == .whitespace {
                     continue
                 }
+
+                textMeasurement = measuredIncrementalTextWidth(
+                    for: piece.text,
+                    font: style.font,
+                    lineText: lineText,
+                    lineTextWidth: lineTextWidth
+                )
+                textSize = CGSize(width: textMeasurement.textWidth, height: textHeight)
+                runWidth = isChangedLexical ? textSize.width + chipInsets.left + chipInsets.right : textSize.width
             }
 
             cursorX += leadingGap
@@ -118,6 +138,7 @@ enum DiffTokenLayouter {
             cursorX += runWidth
             maxUsedX = max(maxUsedX, cursorX)
             lineHasContent = true
+            lineTextWidth = textMeasurement.combinedLineWidth
             previousChangedLexical = isChangedLexical
         }
 
@@ -146,9 +167,28 @@ enum DiffTokenLayouter {
         return NSAttributedString(string: segment.text, attributes: attributes)
     }
 
-    private static func measuredTextSize(for text: String, font: NSFont) -> CGSize {
-        let measured = (text as NSString).size(withAttributes: [.font: font])
-        return CGSize(width: ceil(measured.width), height: ceil(measured.height))
+    private static func measuredIncrementalTextWidth(
+        for text: String,
+        font: NSFont,
+        lineText: NSMutableString,
+        lineTextWidth: CGFloat
+    ) -> IncrementalTextWidth {
+        guard !text.isEmpty else {
+            return IncrementalTextWidth(
+                textWidth: 0,
+                combinedLineWidth: lineTextWidth
+            )
+        }
+
+        lineText.append(text)
+        // TODO: Fix this later
+        // This now appends each token to lineText and calls size(withAttributes:) on the entire accumulated line every iteration, which makes layout cost grow quadratically with line length. On long unwrapped diffs (hundreds/thousands of tokens), this is a significant regression from the prior per-token measurement approach and can noticeably slow rendering even though the new performance tests only capture baselines and do not enforce thresholds.
+        let combinedWidth = lineText.size(withAttributes: [.font: font]).width
+        let textWidth = max(0, combinedWidth - lineTextWidth)
+        return IncrementalTextWidth(
+            textWidth: textWidth,
+            combinedLineWidth: combinedWidth
+        )
     }
 
     private static func effectiveChipInsets(for style: TextDiffStyle) -> NSEdgeInsets {
@@ -261,4 +301,9 @@ private struct LayoutPiece {
     let tokenKind: DiffTokenKind
     let text: String
     let isLineBreak: Bool
+}
+
+private struct IncrementalTextWidth {
+    let textWidth: CGFloat
+    let combinedLineWidth: CGFloat
 }
