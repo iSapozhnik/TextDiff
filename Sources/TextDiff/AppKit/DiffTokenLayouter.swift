@@ -27,6 +27,7 @@ enum DiffTokenLayouter {
         contentInsets: NSEdgeInsets
     ) -> DiffLayout {
         let lineHeight = DiffTextLayoutMetrics.lineHeight(for: style)
+        let textHeight = ceil(style.font.ascender - style.font.descender + style.font.leading)
         let maxLineWidth = availableWidth > 0 ? availableWidth : .greatestFiniteMagnitude
         let lineStartX = contentInsets.left
         let maxLineX = lineStartX + maxLineWidth
@@ -37,14 +38,16 @@ enum DiffTokenLayouter {
         var maxUsedX = lineStartX
         var lineCount = 1
         var lineHasContent = false
-        var lineText = ""
+        let lineText = NSMutableString()
+        var lineTextWidth: CGFloat = 0
         var previousChangedLexical = false
 
         func moveToNewLine() {
             lineTop += lineHeight
             cursorX = lineStartX
             lineHasContent = false
-            lineText.removeAll(keepingCapacity: true)
+            lineText.setString("")
+            lineTextWidth = 0
             previousChangedLexical = false
             lineCount += 1
         }
@@ -67,13 +70,15 @@ enum DiffTokenLayouter {
             }
 
             let attributedText = attributedToken(for: segment, style: style)
-            let textSize = measuredTextSize(
+            var textMeasurement = measuredIncrementalTextWidth(
                 for: piece.text,
                 font: style.font,
-                linePrefix: lineText
+                lineText: lineText,
+                lineTextWidth: lineTextWidth
             )
+            var textSize = CGSize(width: textMeasurement.textWidth, height: textHeight)
             let chipInsets = effectiveChipInsets(for: style)
-            let runWidth = isChangedLexical ? textSize.width + chipInsets.left + chipInsets.right : textSize.width
+            var runWidth = isChangedLexical ? textSize.width + chipInsets.left + chipInsets.right : textSize.width
             let requiredWidth = leadingGap + runWidth
 
             let wrapped = lineHasContent && cursorX + requiredWidth > maxLineX
@@ -85,6 +90,15 @@ enum DiffTokenLayouter {
                 if piece.tokenKind == .whitespace {
                     continue
                 }
+
+                textMeasurement = measuredIncrementalTextWidth(
+                    for: piece.text,
+                    font: style.font,
+                    lineText: lineText,
+                    lineTextWidth: lineTextWidth
+                )
+                textSize = CGSize(width: textMeasurement.textWidth, height: textHeight)
+                runWidth = isChangedLexical ? textSize.width + chipInsets.left + chipInsets.right : textSize.width
             }
 
             cursorX += leadingGap
@@ -124,7 +138,7 @@ enum DiffTokenLayouter {
             cursorX += runWidth
             maxUsedX = max(maxUsedX, cursorX)
             lineHasContent = true
-            lineText.append(piece.text)
+            lineTextWidth = textMeasurement.combinedLineWidth
             previousChangedLexical = isChangedLexical
         }
 
@@ -153,28 +167,26 @@ enum DiffTokenLayouter {
         return NSAttributedString(string: segment.text, attributes: attributes)
     }
 
-    private static func measuredTextSize(for text: String, font: NSFont, linePrefix: String) -> CGSize {
-        let width = measuredIncrementalWidth(
-            for: text,
-            font: font,
-            linePrefix: linePrefix
-        )
-        let measured = (text as NSString).size(withAttributes: [.font: font])
-        return CGSize(width: width, height: measured.height)
-    }
-
-    private static func measuredIncrementalWidth(for text: String, font: NSFont, linePrefix: String) -> CGFloat {
+    private static func measuredIncrementalTextWidth(
+        for text: String,
+        font: NSFont,
+        lineText: NSMutableString,
+        lineTextWidth: CGFloat
+    ) -> IncrementalTextWidth {
         guard !text.isEmpty else {
-            return 0
+            return IncrementalTextWidth(
+                textWidth: 0,
+                combinedLineWidth: lineTextWidth
+            )
         }
 
-        guard !linePrefix.isEmpty else {
-            return (text as NSString).size(withAttributes: [.font: font]).width
-        }
-
-        let prefixWidth = (linePrefix as NSString).size(withAttributes: [.font: font]).width
-        let combinedWidth = ((linePrefix + text) as NSString).size(withAttributes: [.font: font]).width
-        return max(0, combinedWidth - prefixWidth)
+        lineText.append(text)
+        let combinedWidth = lineText.size(withAttributes: [.font: font]).width
+        let textWidth = max(0, combinedWidth - lineTextWidth)
+        return IncrementalTextWidth(
+            textWidth: textWidth,
+            combinedLineWidth: combinedWidth
+        )
     }
 
     private static func effectiveChipInsets(for style: TextDiffStyle) -> NSEdgeInsets {
@@ -287,4 +299,9 @@ private struct LayoutPiece {
     let tokenKind: DiffTokenKind
     let text: String
     let isLineBreak: Bool
+}
+
+private struct IncrementalTextWidth {
+    let textWidth: CGFloat
+    let combinedLineWidth: CGFloat
 }
