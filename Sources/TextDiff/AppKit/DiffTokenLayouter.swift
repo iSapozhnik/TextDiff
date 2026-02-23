@@ -37,12 +37,14 @@ enum DiffTokenLayouter {
         var maxUsedX = lineStartX
         var lineCount = 1
         var lineHasContent = false
+        var lineText = ""
         var previousChangedLexical = false
 
         func moveToNewLine() {
             lineTop += lineHeight
             cursorX = lineStartX
             lineHasContent = false
+            lineText.removeAll(keepingCapacity: true)
             previousChangedLexical = false
             lineCount += 1
         }
@@ -65,7 +67,11 @@ enum DiffTokenLayouter {
             }
 
             let attributedText = attributedToken(for: segment, style: style)
-            let textSize = measuredTextSize(for: piece.text, font: style.font)
+            let textSize = measuredTextSize(
+                for: piece.text,
+                font: style.font,
+                linePrefix: lineText
+            )
             let chipInsets = effectiveChipInsets(for: style)
             let runWidth = isChangedLexical ? textSize.width + chipInsets.left + chipInsets.right : textSize.width
             let requiredWidth = leadingGap + runWidth
@@ -118,6 +124,7 @@ enum DiffTokenLayouter {
             cursorX += runWidth
             maxUsedX = max(maxUsedX, cursorX)
             lineHasContent = true
+            lineText.append(piece.text)
             previousChangedLexical = isChangedLexical
         }
 
@@ -146,9 +153,28 @@ enum DiffTokenLayouter {
         return NSAttributedString(string: segment.text, attributes: attributes)
     }
 
-    private static func measuredTextSize(for text: String, font: NSFont) -> CGSize {
+    private static func measuredTextSize(for text: String, font: NSFont, linePrefix: String) -> CGSize {
+        let width = measuredIncrementalWidth(
+            for: text,
+            font: font,
+            linePrefix: linePrefix
+        )
         let measured = (text as NSString).size(withAttributes: [.font: font])
-        return CGSize(width: measured.width, height: measured.height)
+        return CGSize(width: width, height: measured.height)
+    }
+
+    private static func measuredIncrementalWidth(for text: String, font: NSFont, linePrefix: String) -> CGFloat {
+        guard !text.isEmpty else {
+            return 0
+        }
+
+        guard !linePrefix.isEmpty else {
+            return (text as NSString).size(withAttributes: [.font: font]).width
+        }
+
+        let prefixWidth = (linePrefix as NSString).size(withAttributes: [.font: font]).width
+        let combinedWidth = ((linePrefix + text) as NSString).size(withAttributes: [.font: font]).width
+        return max(0, combinedWidth - prefixWidth)
     }
 
     private static func effectiveChipInsets(for style: TextDiffStyle) -> NSEdgeInsets {
