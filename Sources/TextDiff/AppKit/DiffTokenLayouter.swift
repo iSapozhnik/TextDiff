@@ -148,7 +148,7 @@ enum DiffTokenLayouter {
 
     private static func measuredTextSize(for text: String, font: NSFont) -> CGSize {
         let measured = (text as NSString).size(withAttributes: [.font: font])
-        return CGSize(width: ceil(measured.width), height: ceil(measured.height))
+        return CGSize(width: measured.width, height: measured.height)
     }
 
     private static func effectiveChipInsets(for style: TextDiffStyle) -> NSEdgeInsets {

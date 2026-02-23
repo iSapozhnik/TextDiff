@@ -35,7 +35,7 @@ public struct TextDiffView: View {
             style: style,
             mode: mode
         )
-            .accessibilityLabel("Text diff")
+        .accessibilityLabel("Text diff")
     }
 }
 
@@ -49,6 +49,7 @@ public struct TextDiffView: View {
 }
 
 #Preview("TextDiffView") {
+    let font: NSFont = .systemFont(ofSize: 16, weight: .regular)
     let style = TextDiffStyle(
         additionsStyle: TextDiffChangeStyle(
             fillColor: .systemGreen.withAlphaComponent(0.28),
@@ -62,7 +63,7 @@ public struct TextDiffView: View {
             strikethrough: true
         ),
         textColor: .labelColor,
-        font: .systemFont(ofSize: 16, weight: .regular),
+        font: font,
         chipCornerRadius: 3,
         chipInsets: NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0),
         interChipSpacing: 1,
@@ -72,11 +73,11 @@ public struct TextDiffView: View {
         Text("Diff by characters")
             .bold()
         TextDiffView(
-            original: "Add a diff view! Looks good!",
-            updated: "Added a diff view. It looks good!",
-            style: style,
-            mode: .character
-        )
+                original: "Add a diff view! Looks good!",
+                updated: "Added a diff view. It looks good!",
+                style: style,
+                mode: .character
+            )
         HStack {
             Text("dog → fog:")
             TextDiffView(
@@ -89,12 +90,12 @@ public struct TextDiffView: View {
         Divider()
         Text("Diff by words")
             .bold()
-        TextDiffView(
-            original: "Add a diff view! Looks good!",
-            updated: "Added a diff view. It looks good!",
-            style: style,
-            mode: .token
-        )
+            TextDiffView(
+                original: "Add a diff view! Looks good!",
+                updated: "Added a diff view. It looks good!",
+                style: style,
+                mode: .token
+            )
         HStack {
             Text("dog → fog:")
             TextDiffView(
@@ -124,6 +125,43 @@ public struct TextDiffView: View {
         updated: "Added a diff",
         mode: .character
     )
+    .padding()
+    .frame(width: 320)
+}
+
+#Preview("Height diff") {
+    let font: NSFont = .systemFont(ofSize: 16, weight: .regular)
+    let style = TextDiffStyle(
+        additionsStyle: TextDiffChangeStyle(
+            fillColor: .systemGreen.withAlphaComponent(0.28),
+            strokeColor: .systemGreen.withAlphaComponent(0.75),
+            textColorOverride: .labelColor
+        ),
+        removalsStyle: TextDiffChangeStyle(
+            fillColor: .systemRed.withAlphaComponent(0.24),
+            strokeColor: .systemRed.withAlphaComponent(0.75),
+            textColorOverride: .secondaryLabelColor,
+            strikethrough: true
+        ),
+        textColor: .labelColor,
+        font: font,
+        chipCornerRadius: 3,
+        chipInsets: NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0),
+        interChipSpacing: 1,
+        lineSpacing: 0
+    )
+    ZStack(alignment: .topLeading) {
+        Text("Add ed a diff view. It looks good! Add ed a diff view. It looks good!")
+            .font(.system(size: 16, weight: .regular, design: nil))
+            .foregroundStyle(.red.opacity(0.7))
+        
+        TextDiffView(
+            original: "Add ed a diff view. It looks good! Add ed a diff view. It looks good!",
+            updated: "Add ed a diff view. It looks good! Add ed a diff view. It looks good!",
+            style: style,
+            mode: .character
+        )
+    }
     .padding()
     .frame(width: 320)
 }
