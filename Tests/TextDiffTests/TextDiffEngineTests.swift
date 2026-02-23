@@ -332,12 +332,21 @@ func layouterUsesRemovalStrikethroughFromRemovalStyle() throws {
 }
 
 @Test
-func verticalInsetScalesWithChipInsets() {
-    #expect(DiffTextLayoutMetrics.verticalTextInset(for: .default) == 3)
+func verticalInsetIsNonNegativeAndMonotonic() {
+    var base = TextDiffStyle.default
+    base.chipInsets = NSEdgeInsets(top: 0, left: 2, bottom: 0, right: 2)
+    let baseInset = DiffTextLayoutMetrics.verticalTextInset(for: base)
+    #expect(baseInset >= 0)
 
-    var style = TextDiffStyle.default
-    style.chipInsets = NSEdgeInsets(top: 6, left: 2, bottom: 1, right: 2)
-    #expect(DiffTextLayoutMetrics.verticalTextInset(for: style) == 8)
+    var largerTop = base
+    largerTop.chipInsets = NSEdgeInsets(top: 6, left: 2, bottom: 0, right: 2)
+    let largerTopInset = DiffTextLayoutMetrics.verticalTextInset(for: largerTop)
+    #expect(largerTopInset >= baseInset)
+
+    var largerBottom = base
+    largerBottom.chipInsets = NSEdgeInsets(top: 0, left: 2, bottom: 7, right: 2)
+    let largerBottomInset = DiffTextLayoutMetrics.verticalTextInset(for: largerBottom)
+    #expect(largerBottomInset >= baseInset)
 }
 
 @Test

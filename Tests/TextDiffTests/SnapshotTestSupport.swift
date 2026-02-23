@@ -20,6 +20,8 @@ func assertTextDiffSnapshot(
     line: UInt = #line,
     column: UInt = #column
 ) {
+    configureSnapshotArtifactsDirectory(filePath: filePath)
+
     let rootView = TextDiffView(
         original: original,
         updated: updated,
@@ -36,19 +38,21 @@ func assertTextDiffSnapshot(
 
     let snapshotImage = renderSnapshotImage1x(view: hostingView, size: size)
 
-    assertSnapshot(
-        of: snapshotImage,
-        as: .image(
-            precision: snapshotPrecision,
-            perceptualPrecision: snapshotPerceptualPrecision
-        ),
-        named: name,
-        fileID: fileID,
-        file: filePath,
-        testName: testName,
-        line: line,
-        column: column
-    )
+    withSnapshotTesting(diffTool: .ksdiff) {
+        assertSnapshot(
+            of: snapshotImage,
+            as: .image(
+                precision: snapshotPrecision,
+                perceptualPrecision: snapshotPerceptualPrecision
+            ),
+            named: name,
+            fileID: fileID,
+            file: filePath,
+            testName: testName,
+            line: line,
+            column: column
+        )
+    }
 }
 
 @MainActor
@@ -65,6 +69,8 @@ func assertNSTextDiffSnapshot(
     line: UInt = #line,
     column: UInt = #column
 ) {
+    configureSnapshotArtifactsDirectory(filePath: filePath)
+
     let diffView = NSTextDiffView(
         original: original,
         updated: updated,
@@ -84,19 +90,31 @@ func assertNSTextDiffSnapshot(
 
     let snapshotImage = renderSnapshotImage1x(view: container, size: size)
 
-    assertSnapshot(
-        of: snapshotImage,
-        as: .image(
-            precision: snapshotPrecision,
-            perceptualPrecision: snapshotPerceptualPrecision
-        ),
-        named: name,
-        fileID: fileID,
-        file: filePath,
-        testName: testName,
-        line: line,
-        column: column
-    )
+    withSnapshotTesting(diffTool: .ksdiff) {
+        assertSnapshot(
+            of: snapshotImage,
+            as: .image(
+                precision: snapshotPrecision,
+                perceptualPrecision: snapshotPerceptualPrecision
+            ),
+            named: name,
+            fileID: fileID,
+            file: filePath,
+            testName: testName,
+            line: line,
+            column: column
+        )
+    }
+}
+
+private func configureSnapshotArtifactsDirectory(filePath: StaticString) {
+    let fileURL = URL(fileURLWithPath: "\(filePath)")
+    let repoRootURL = fileURL
+        .deletingLastPathComponent() // TextDiffTests
+        .deletingLastPathComponent() // Tests
+        .deletingLastPathComponent() // repo root
+    let artifactsPath = repoRootURL.appendingPathComponent(".snapshot-artifacts", isDirectory: true).path
+    setenv("SNAPSHOT_ARTIFACTS", artifactsPath, 1)
 }
 
 @MainActor
