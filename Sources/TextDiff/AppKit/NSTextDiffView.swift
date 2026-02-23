@@ -552,7 +552,7 @@ public final class NSTextDiffView: NSView {
                 xRadius: style.chipCornerRadius + 2,
                 yRadius: style.chipCornerRadius + 2
             )
-            groupPath.lineWidth = 1.5
+            applyGroupStrokeStyle(to: groupPath)
             groupPath.stroke()
         } else {
             for chipRect in chipRects {
@@ -562,7 +562,7 @@ public final class NSTextDiffView: NSView {
                     xRadius: style.chipCornerRadius + 1,
                     yRadius: style.chipCornerRadius + 1
                 )
-                outlinePath.lineWidth = 1.5
+                applyGroupStrokeStyle(to: outlinePath)
                 outlinePath.stroke()
             }
         }
@@ -595,6 +595,17 @@ public final class NSTextDiffView: NSView {
             return
         }
         configured.draw(in: symbolRect)
+    }
+
+    private func applyGroupStrokeStyle(to path: NSBezierPath) {
+        path.lineWidth = 1.5
+        switch style.groupStrokeStyle {
+        case .solid:
+            path.setLineDash([], count: 0, phase: 0)
+        case .dashed:
+            var pattern: [CGFloat] = [4, 2]
+            path.setLineDash(&pattern, count: pattern.count, phase: 0)
+        }
     }
 
     private func drawChip(

@@ -102,9 +102,10 @@ public struct TextDiffView: View {
         textColor: .labelColor,
         font: font,
         chipCornerRadius: 3,
-        chipInsets: NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0),
+        chipInsets: NSEdgeInsets(top: 1, left: 0, bottom: 1, right: 0),
         interChipSpacing: 1,
-        lineSpacing: 0
+        lineSpacing: 2,
+        groupStrokeStyle: .dashed
     )
     VStack(alignment: .leading, spacing: 4) {
         Text("Diff by characters")

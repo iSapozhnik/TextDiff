@@ -169,6 +169,11 @@ func defaultStyleInterChipSpacingMatchesCurrentDefault() {
 }
 
 @Test
+func defaultGroupStrokeStyleIsSolid() {
+    #expect(TextDiffStyle.default.groupStrokeStyle == .solid)
+}
+
+@Test
 func textDiffStyleDefaultUsesDefaultAdditionAndRemovalStyles() {
     let style = TextDiffStyle.default
     expectColorEqual(style.additionsStyle.fillColor, TextDiffChangeStyle.defaultAddition.fillColor)
@@ -194,7 +199,8 @@ func textDiffStyleProtocolInitConvertsCustomConformers() {
 
     let style = TextDiffStyle(
         additionsStyle: additions,
-        removalsStyle: removals
+        removalsStyle: removals,
+        groupStrokeStyle: .dashed
     )
 
     expectColorEqual(style.additionsStyle.fillColor, additions.fillColor)
@@ -206,6 +212,7 @@ func textDiffStyleProtocolInitConvertsCustomConformers() {
     expectColorEqual(style.removalsStyle.strokeColor, removals.strokeColor)
     expectColorEqual(style.removalsStyle.textColorOverride ?? .clear, removals.textColorOverride ?? .clear)
     #expect(style.removalsStyle.strikethrough == removals.strikethrough)
+    #expect(style.groupStrokeStyle == .dashed)
 }
 
 @Test
