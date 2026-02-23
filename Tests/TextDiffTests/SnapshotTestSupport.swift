@@ -62,6 +62,7 @@ func assertNSTextDiffSnapshot(
     mode: TextDiffComparisonMode = .token,
     style: TextDiffStyle = .default,
     size: CGSize,
+    configureView: ((NSTextDiffView) -> Void)? = nil,
     named name: String? = nil,
     fileID: StaticString = #fileID,
     filePath: StaticString = #filePath,
@@ -86,6 +87,8 @@ func assertNSTextDiffSnapshot(
     diffView.frame = container.bounds
     diffView.autoresizingMask = [.width, .height]
     container.addSubview(diffView)
+    container.layoutSubtreeIfNeeded()
+    configureView?(diffView)
     container.layoutSubtreeIfNeeded()
 
     let snapshotImage = renderSnapshotImage1x(view: container, size: size)

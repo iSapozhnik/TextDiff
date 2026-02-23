@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 
 struct LaidOutRun {
+    let segmentIndex: Int
     let segment: DiffSegment
     let attributedText: NSAttributedString
     let textRect: CGRect
@@ -124,6 +125,7 @@ enum DiffTokenLayouter {
 
             runs.append(
                 LaidOutRun(
+                    segmentIndex: piece.segmentIndex,
                     segment: segment,
                     attributedText: attributedText,
                     textRect: textRect,
@@ -252,13 +254,14 @@ enum DiffTokenLayouter {
         var output: [LayoutPiece] = []
         output.reserveCapacity(segments.count)
 
-        for segment in segments {
+        for (segmentIndex, segment) in segments.enumerated() {
             var buffer = ""
             for scalar in segment.text.unicodeScalars {
                 if scalar == "\n" {
                     if !buffer.isEmpty {
                         output.append(
                             LayoutPiece(
+                                segmentIndex: segmentIndex,
                                 kind: segment.kind,
                                 tokenKind: segment.tokenKind,
                                 text: buffer,
@@ -269,6 +272,7 @@ enum DiffTokenLayouter {
                     }
                     output.append(
                         LayoutPiece(
+                            segmentIndex: segmentIndex,
                             kind: segment.kind,
                             tokenKind: .whitespace,
                             text: "",
@@ -283,6 +287,7 @@ enum DiffTokenLayouter {
             if !buffer.isEmpty {
                 output.append(
                     LayoutPiece(
+                        segmentIndex: segmentIndex,
                         kind: segment.kind,
                         tokenKind: segment.tokenKind,
                         text: buffer,
@@ -297,6 +302,7 @@ enum DiffTokenLayouter {
 }
 
 private struct LayoutPiece {
+    let segmentIndex: Int
     let kind: DiffOperationKind
     let tokenKind: DiffTokenKind
     let text: String

@@ -17,6 +17,10 @@ final class DiffLayouterPerformanceTests: XCTestCase {
         runLayoutPerformanceTest(wordCount: 1000)
     }
 
+    func testLayoutPerformance500WordsWithRevertInteractions() {
+        runLayoutWithRevertInteractionsPerformanceTest(wordCount: 500)
+    }
+
     private func runLayoutPerformanceTest(wordCount: Int) {
         let style = TextDiffStyle.default
         let verticalInset = DiffTextLayoutMetrics.verticalTextInset(for: style)
@@ -35,6 +39,33 @@ final class DiffLayouterPerformanceTests: XCTestCase {
                 contentInsets: contentInsets
             )
             XCTAssertFalse(layout.runs.isEmpty)
+        }
+    }
+
+    private func runLayoutWithRevertInteractionsPerformanceTest(wordCount: Int) {
+        let style = TextDiffStyle.default
+        let verticalInset = DiffTextLayoutMetrics.verticalTextInset(for: style)
+        let contentInsets = NSEdgeInsets(top: verticalInset, left: 0, bottom: verticalInset, right: 0)
+        let availableWidth: CGFloat = 520
+
+        let original = Self.largeText(wordCount: wordCount)
+        let updated = Self.replacingLastWord(in: original)
+        let segments = TextDiffEngine.diff(original: original, updated: updated, mode: .token)
+
+        measure(metrics: [XCTClockMetric()]) {
+            let layout = DiffTokenLayouter.layout(
+                segments: segments,
+                style: style,
+                availableWidth: availableWidth,
+                contentInsets: contentInsets
+            )
+            let context = DiffRevertActionResolver.interactionContext(
+                segments: segments,
+                runs: layout.runs,
+                mode: .token
+            )
+            XCTAssertFalse(layout.runs.isEmpty)
+            XCTAssertNotNil(context)
         }
     }
 
