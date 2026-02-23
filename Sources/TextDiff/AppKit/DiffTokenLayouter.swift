@@ -181,6 +181,8 @@ enum DiffTokenLayouter {
         }
 
         lineText.append(text)
+        // TODO: Fix this later
+        // This now appends each token to lineText and calls size(withAttributes:) on the entire accumulated line every iteration, which makes layout cost grow quadratically with line length. On long unwrapped diffs (hundreds/thousands of tokens), this is a significant regression from the prior per-token measurement approach and can noticeably slow rendering even though the new performance tests only capture baselines and do not enforce thresholds.
         let combinedWidth = lineText.size(withAttributes: [.font: font]).width
         let textWidth = max(0, combinedWidth - lineTextWidth)
         return IncrementalTextWidth(
