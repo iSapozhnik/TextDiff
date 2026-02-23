@@ -130,7 +130,7 @@ public struct TextDiffView: View {
 }
 
 #Preview("Height diff") {
-    let font: NSFont = .systemFont(ofSize: 16, weight: .regular)
+    let font: NSFont = .systemFont(ofSize: 32, weight: .regular)
     let style = TextDiffStyle(
         additionsStyle: TextDiffChangeStyle(
             fillColor: .systemGreen.withAlphaComponent(0.28),
@@ -152,16 +152,15 @@ public struct TextDiffView: View {
     )
     ZStack(alignment: .topLeading) {
         Text("Add ed a diff view. It looks good! Add ed a diff view. It looks good!")
-            .font(.system(size: 16, weight: .regular, design: nil))
+            .font(.system(size: 32, weight: .regular, design: nil))
             .foregroundStyle(.red.opacity(0.7))
         
         TextDiffView(
-            original: "Add ed a diff view. It looks good! Add ed a diff view. It looks good!",
+            original: "Add ed a diff view. It looks good! Add ed a diff view. It looks good.",
             updated: "Add ed a diff view. It looks good! Add ed a diff view. It looks good!",
             style: style,
             mode: .character
         )
     }
     .padding()
-    .frame(width: 320)
 }
