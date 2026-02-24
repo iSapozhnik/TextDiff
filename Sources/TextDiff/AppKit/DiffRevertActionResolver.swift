@@ -131,8 +131,7 @@ enum DiffRevertActionResolver {
                 let next = indexed[index + 1]
                 if current.segment.kind == .delete,
                    next.segment.kind == .insert,
-                   isCurrentLexical,
-                   isLexicalChange(next.segment) {
+                   isReplacementPair(delete: current.segment, insert: next.segment) {
                     output.append(
                         DiffRevertCandidate(
                             id: candidateID,
@@ -303,6 +302,20 @@ enum DiffRevertActionResolver {
 
     private static func isLexicalChange(_ segment: DiffSegment) -> Bool {
         segment.tokenKind != .whitespace && segment.kind != .equal
+    }
+
+    private static func isReplacementPair(delete: DiffSegment, insert: DiffSegment) -> Bool {
+        if isLexicalChange(delete), isLexicalChange(insert) {
+            return true
+        }
+
+        // Treat deleted spacing replaced by punctuation as one reversible edit.
+        if delete.tokenKind == .whitespace,
+           insert.tokenKind == .punctuation {
+            return true
+        }
+
+        return false
     }
 
     private static func textMatches(_ text: String, source: NSString, at location: Int) -> Bool {

@@ -52,6 +52,25 @@ func punctuationEditsAreLexicalDiffSegments() {
 }
 
 @Test
+func punctuationInsertionReplacingWhitespaceKeepsWhitespaceDeletionVisible() {
+    let segments = TextDiffEngine.diff(
+        original: "in app purchase",
+        updated: "in-app purchase"
+    )
+
+    let deletedWhitespaceIndex = segments.firstIndex {
+        $0.kind == .delete && $0.tokenKind == .whitespace && $0.text == " "
+    }
+    let insertedHyphenIndex = segments.firstIndex {
+        $0.kind == .insert && $0.tokenKind == .punctuation && $0.text == "-"
+    }
+
+    #expect(deletedWhitespaceIndex != nil)
+    #expect(insertedHyphenIndex != nil)
+    #expect((deletedWhitespaceIndex ?? 0) < (insertedHyphenIndex ?? 0))
+}
+
+@Test
 func whitespaceOnlyChangesPreserveUpdatedLayoutWithoutWhitespaceDiffMarkers() {
     let updated = "Hello world\n"
     let segments = TextDiffEngine.diff(original: "Hello   world", updated: updated)
@@ -271,6 +290,34 @@ func layouterAppliesGapForPunctuationAdjacency() {
     let chips = layout.runs.compactMap { $0.chipRect }
     #expect(chips.count == 2)
     #expect(chips[1].minX - chips[0].maxX >= 4 - 0.0001)
+}
+
+@Test
+func layouterRendersDeletedWhitespaceAsChipWhenReplacedByPunctuation() throws {
+    let style = TextDiffStyle.default
+    let layout = DiffTokenLayouter.layout(
+        segments: [
+            DiffSegment(kind: .equal, tokenKind: .word, text: "in"),
+            DiffSegment(kind: .delete, tokenKind: .whitespace, text: " "),
+            DiffSegment(kind: .insert, tokenKind: .punctuation, text: "-"),
+            DiffSegment(kind: .equal, tokenKind: .word, text: "app")
+        ],
+        style: style,
+        availableWidth: 500,
+        contentInsets: zeroInsets
+    )
+
+    let deletedWhitespaceRun = layout.runs.first {
+        $0.segment.kind == .delete && $0.segment.tokenKind == .whitespace
+    }
+    let insertedHyphenRun = layout.runs.first {
+        $0.segment.kind == .insert && $0.segment.tokenKind == .punctuation && $0.segment.text == "-"
+    }
+
+    let deletedWhitespaceChip = try #require(deletedWhitespaceRun?.chipRect)
+    let insertedHyphenChip = try #require(insertedHyphenRun?.chipRect)
+    #expect(deletedWhitespaceChip.width > 0)
+    #expect(insertedHyphenChip.width > 0)
 }
 
 @Test

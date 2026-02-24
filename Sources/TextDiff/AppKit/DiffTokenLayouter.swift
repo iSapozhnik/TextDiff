@@ -64,7 +64,8 @@ enum DiffTokenLayouter {
             }
 
             let segment = DiffSegment(kind: piece.kind, tokenKind: piece.tokenKind, text: piece.text)
-            let isChangedLexical = segment.kind != .equal && segment.tokenKind != .whitespace
+            let isChangedLexical = segment.kind != .equal
+                && (segment.tokenKind != .whitespace || segment.kind == .delete)
             var leadingGap: CGFloat = 0
             if previousChangedLexical && isChangedLexical {
                 leadingGap = max(0, style.interChipSpacing)

@@ -94,8 +94,8 @@ public final class NSTextDiffView: NSView {
     #endif
 
     private let hoverOutlineColor = NSColor.controlAccentColor.withAlphaComponent(0.9)
-    private let hoverButtonFillColor = NSColor.black//NSColor.windowBackgroundColor.withAlphaComponent(0.95)
-    private let hoverButtonStrokeColor = NSColor.clear//NSColor.controlAccentColor.withAlphaComponent(0.8)
+    private let hoverButtonFillColor = NSColor.black
+    private let hoverButtonStrokeColor = NSColor.clear
     private let hoverIconName = "arrow.turn.down.left"
     private let hoverButtonSize = CGSize(width: 16, height: 16)
     private let hoverButtonGap: CGFloat = 4

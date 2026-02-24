@@ -209,11 +209,11 @@ public struct TextDiffView: View {
 }
 
 private struct RevertBindingPreview: View {
-    @State private var updated = "Apply new value in this sentence."
+    @State private var updated = "a default in-app purchase flow where they have to provide their email and password within the app"
 
     var body: some View {
         TextDiffView(
-            original: "Apply old value on The sentence!",
+            original: "a default in app purchase flow where they have to provide their email and password within the app A",
             updated: $updated,
             mode: .token,
             isRevertActionsEnabled: true

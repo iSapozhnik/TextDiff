@@ -137,3 +137,25 @@ func standaloneDeletionAtEndRevertRestoresSpacing() throws {
     let action = try #require(DiffRevertActionResolver.action(from: deletion, updated: updated))
     #expect(action.resultingUpdated == original)
 }
+
+@Test
+func hyphenReplacingWhitespaceRevertRestoresOriginalSpacing() throws {
+    let original = "in app purchase"
+    let updated = "in-app purchase"
+    let segments = TextDiffEngine.diff(original: original, updated: updated, mode: .token)
+
+    let candidates = DiffRevertActionResolver.candidates(
+        from: segments,
+        mode: .token,
+        original: original,
+        updated: updated
+    )
+    let replacement = try #require(candidates.first(where: { $0.kind == .pairedReplacement }))
+
+    #expect(replacement.originalTextFragment == " ")
+    #expect(replacement.updatedTextFragment == "-")
+
+    let action = try #require(DiffRevertActionResolver.action(from: replacement, updated: updated))
+    #expect(action.kind == .pairedReplacement)
+    #expect(action.resultingUpdated == original)
+}
