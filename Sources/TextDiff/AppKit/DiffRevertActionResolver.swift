@@ -258,6 +258,12 @@ enum DiffRevertActionResolver {
         if candidate.kind == .singleDeletion, updatedRange.location > nsUpdated.length {
             updatedRange.location = nsUpdated.length
         }
+        if candidate.kind == .singleInsertion, candidate.tokenKind == .word {
+            updatedRange = adjustedStandaloneWordInsertionRemovalRange(
+                updatedRange,
+                updated: nsUpdated
+            )
+        }
         guard updatedRange.location >= 0 else {
             return nil
         }
@@ -367,6 +373,41 @@ enum DiffRevertActionResolver {
             output += " "
         }
         return output
+    }
+
+    private static func adjustedStandaloneWordInsertionRemovalRange(
+        _ range: NSRange,
+        updated: NSString
+    ) -> NSRange {
+        guard range.location >= 0, range.length >= 0 else {
+            return range
+        }
+        guard NSMaxRange(range) <= updated.length else {
+            return range
+        }
+
+        let hasLeadingWhitespace = range.location > 0
+            && isWhitespaceCharacter(updated.substring(with: NSRange(location: range.location - 1, length: 1)))
+        let hasTrailingWhitespace = NSMaxRange(range) < updated.length
+            && isWhitespaceCharacter(updated.substring(with: NSRange(location: NSMaxRange(range), length: 1)))
+
+        if hasLeadingWhitespace, hasTrailingWhitespace {
+            return NSRange(location: range.location, length: range.length + 1)
+        }
+
+        if range.location == 0, hasTrailingWhitespace {
+            return NSRange(location: range.location, length: range.length + 1)
+        }
+
+        if NSMaxRange(range) == updated.length, hasLeadingWhitespace {
+            return NSRange(location: range.location - 1, length: range.length + 1)
+        }
+
+        return range
+    }
+
+    private static func isWhitespaceCharacter(_ scalarString: String) -> Bool {
+        scalarString.unicodeScalars.allSatisfy { CharacterSet.whitespacesAndNewlines.contains($0) }
     }
 
     private static func isWordLike(_ scalarString: String) -> Bool {

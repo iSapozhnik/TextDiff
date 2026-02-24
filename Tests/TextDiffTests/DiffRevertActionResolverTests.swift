@@ -159,3 +159,107 @@ func hyphenReplacingWhitespaceRevertRestoresOriginalSpacing() throws {
     #expect(action.kind == .pairedReplacement)
     #expect(action.resultingUpdated == original)
 }
+
+@Test
+func singleInsertionWordRevertCollapsesBoundaryWhitespace() throws {
+    let original = "A B"
+    let updated = "A X B"
+    let segments = TextDiffEngine.diff(original: original, updated: updated, mode: .token)
+
+    let candidates = DiffRevertActionResolver.candidates(
+        from: segments,
+        mode: .token,
+        original: original,
+        updated: updated
+    )
+    let insertion = try #require(candidates.first(where: {
+        $0.kind == .singleInsertion && $0.updatedTextFragment == "X"
+    }))
+
+    let action = try #require(DiffRevertActionResolver.action(from: insertion, updated: updated))
+    #expect(action.resultingUpdated == original)
+}
+
+@Test
+func sequentialRevertsKeepLooksItAsPairedReplacement() throws {
+    let original = "Add a diff view! Looks good!"
+    var updated = "Added a diff view. It looks good!"
+
+    updated = try applyingRevert(
+        original: original,
+        updated: updated,
+        kind: .pairedReplacement,
+        originalFragment: "Add",
+        updatedFragment: "Added"
+    )
+
+    updated = try applyingRevert(
+        original: original,
+        updated: updated,
+        kind: .pairedReplacement,
+        originalFragment: "!",
+        updatedFragment: "."
+    )
+
+    updated = try applyingRevert(
+        original: original,
+        updated: updated,
+        kind: .singleInsertion,
+        originalFragment: nil,
+        updatedFragment: "looks"
+    )
+    #expect(updated == "Add a diff view! It good!")
+
+    let remaining = revertCandidates(original: original, updated: updated)
+    let looksItPair = remaining.first {
+        $0.kind == .pairedReplacement
+            && $0.originalTextFragment == "Looks"
+            && $0.updatedTextFragment == "It"
+    }
+
+    #expect(looksItPair != nil)
+    #expect(!remaining.contains {
+        $0.kind == .singleDeletion && $0.originalTextFragment == "Looks"
+    })
+    #expect(!remaining.contains {
+        $0.kind == .singleInsertion && $0.updatedTextFragment == "It"
+    })
+}
+
+private func applyingRevert(
+    original: String,
+    updated: String,
+    kind: DiffRevertCandidateKind,
+    originalFragment: String?,
+    updatedFragment: String?
+) throws -> String {
+    let candidates = revertCandidates(original: original, updated: updated)
+    var matched: DiffRevertCandidate?
+    for candidate in candidates {
+        guard candidate.kind == kind else {
+            continue
+        }
+        guard candidate.originalTextFragment == originalFragment else {
+            continue
+        }
+        guard candidate.updatedTextFragment == updatedFragment else {
+            continue
+        }
+        matched = candidate
+        break
+    }
+
+    let candidate = try #require(matched)
+    let action = try #require(DiffRevertActionResolver.action(from: candidate, updated: updated))
+    return action.resultingUpdated
+}
+
+private func revertCandidates(original: String, updated: String) -> [DiffRevertCandidate] {
+    let segments = TextDiffEngine.diff(original: original, updated: updated, mode: .token)
+    return DiffRevertActionResolver.candidates(
+        from: segments,
+        mode: .token,
+        original: original,
+        updated: updated
+    )
+}
