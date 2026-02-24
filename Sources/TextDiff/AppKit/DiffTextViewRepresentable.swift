@@ -7,6 +7,7 @@ struct DiffTextViewRepresentable: NSViewRepresentable {
     let updatedBinding: Binding<String>?
     let style: TextDiffStyle
     let mode: TextDiffComparisonMode
+    let showsInvisibleCharacters: Bool
     let isRevertActionsEnabled: Bool
     let onRevertAction: ((TextDiffRevertAction) -> Void)?
 
@@ -27,6 +28,7 @@ struct DiffTextViewRepresentable: NSViewRepresentable {
             updatedBinding: updatedBinding,
             onRevertAction: onRevertAction
         )
+        view.showsInvisibleCharacters = showsInvisibleCharacters
         view.isRevertActionsEnabled = isRevertActionsEnabled
         view.onRevertAction = { [coordinator = context.coordinator] action in
             coordinator.handle(action)
@@ -42,6 +44,7 @@ struct DiffTextViewRepresentable: NSViewRepresentable {
         view.onRevertAction = { [coordinator = context.coordinator] action in
             coordinator.handle(action)
         }
+        view.showsInvisibleCharacters = showsInvisibleCharacters
         view.isRevertActionsEnabled = isRevertActionsEnabled
         view.setContent(
             original: original,

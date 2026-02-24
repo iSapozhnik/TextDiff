@@ -15,6 +15,7 @@ struct LaidOutRun {
 
 struct DiffLayout {
     let runs: [LaidOutRun]
+    let lineBreakMarkers: [CGPoint]
     let contentSize: CGSize
 }
 
@@ -39,6 +40,7 @@ enum DiffTokenLayouter {
         var maxUsedX = lineStartX
         var lineCount = 1
         var lineHasContent = false
+        var lineBreakMarkers: [CGPoint] = []
         let lineText = NSMutableString()
         var lineTextWidth: CGFloat = 0
         var previousChangedLexical = false
@@ -55,6 +57,12 @@ enum DiffTokenLayouter {
 
         for piece in pieces(from: segments) {
             if piece.isLineBreak {
+                lineBreakMarkers.append(
+                    CGPoint(
+                        x: cursorX,
+                        y: lineTop + (lineHeight / 2)
+                    )
+                )
                 moveToNewLine()
                 continue
             }
@@ -153,6 +161,7 @@ enum DiffTokenLayouter {
 
         return DiffLayout(
             runs: runs,
+            lineBreakMarkers: lineBreakMarkers,
             contentSize: CGSize(width: max(intrinsicWidth, usedWidth), height: contentHeight)
         )
     }

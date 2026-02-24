@@ -130,6 +130,25 @@ final class NSTextDiffSnapshotTests: XCTestCase {
         )
     }
 
+    @MainActor
+    func testInvisibleCharactersDebugOverlay() {
+        var style = TextDiffStyle.default
+        style.font = .monospacedSystemFont(ofSize: 20, weight: .regular)
+        style.lineSpacing = 4
+        let text = "space tab\tnbsp:\u{00A0} newline:\nnext line"
+        assertNSTextDiffSnapshot(
+            original: text,
+            updated: text,
+            mode: .token,
+            style: style,
+            size: CGSize(width: 560, height: 170),
+            configureView: { view in
+                view.showsInvisibleCharacters = true
+            },
+            testName: "invisible_characters_debug_overlay()"
+        )
+    }
+
     private let sampleOriginalSentence = "A quick brown fox jumps over a lazy dog."
     private let sampleUpdatedSentence = "A quick fox hops over the lazy dog!"
 }

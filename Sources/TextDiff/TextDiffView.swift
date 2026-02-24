@@ -8,6 +8,7 @@ public struct TextDiffView: View {
     private let updatedBinding: Binding<String>?
     private let mode: TextDiffComparisonMode
     private let style: TextDiffStyle
+    private let showsInvisibleCharacters: Bool
     private let isRevertActionsEnabled: Bool
     private let onRevertAction: ((TextDiffRevertAction) -> Void)?
 
@@ -18,17 +19,20 @@ public struct TextDiffView: View {
     ///   - updated: The source text after edits.
     ///   - style: Visual style used to render additions, deletions, and unchanged text.
     ///   - mode: Comparison mode that controls token-level or character-refined output.
+    ///   - showsInvisibleCharacters: Debug-only overlay that draws whitespace/newline symbols in red.
     public init(
         original: String,
         updated: String,
         style: TextDiffStyle = .default,
-        mode: TextDiffComparisonMode = .token
+        mode: TextDiffComparisonMode = .token,
+        showsInvisibleCharacters: Bool = false
     ) {
         self.original = original
         self.updatedValue = updated
         self.updatedBinding = nil
         self.mode = mode
         self.style = style
+        self.showsInvisibleCharacters = showsInvisibleCharacters
         self.isRevertActionsEnabled = false
         self.onRevertAction = nil
     }
@@ -40,6 +44,7 @@ public struct TextDiffView: View {
     ///   - updated: The source text after edits.
     ///   - style: Visual style used to render additions, deletions, and unchanged text.
     ///   - mode: Comparison mode that controls token-level or character-refined output.
+    ///   - showsInvisibleCharacters: Debug-only overlay that draws whitespace/newline symbols in red.
     ///   - isRevertActionsEnabled: Enables hover affordance and revert actions.
     ///   - onRevertAction: Optional callback invoked on revert clicks.
     public init(
@@ -47,6 +52,7 @@ public struct TextDiffView: View {
         updated: Binding<String>,
         style: TextDiffStyle = .default,
         mode: TextDiffComparisonMode = .token,
+        showsInvisibleCharacters: Bool = false,
         isRevertActionsEnabled: Bool = true,
         onRevertAction: ((TextDiffRevertAction) -> Void)? = nil
     ) {
@@ -55,6 +61,7 @@ public struct TextDiffView: View {
         self.updatedBinding = updated
         self.mode = mode
         self.style = style
+        self.showsInvisibleCharacters = showsInvisibleCharacters
         self.isRevertActionsEnabled = isRevertActionsEnabled
         self.onRevertAction = onRevertAction
     }
@@ -68,6 +75,7 @@ public struct TextDiffView: View {
             updatedBinding: updatedBinding,
             style: style,
             mode: mode,
+            showsInvisibleCharacters: showsInvisibleCharacters,
             isRevertActionsEnabled: isRevertActionsEnabled,
             onRevertAction: onRevertAction
         )
@@ -216,6 +224,7 @@ private struct RevertBindingPreview: View {
             original: "a default in app purchase flow where they have to provide their email and password within the app A",
             updated: $updated,
             mode: .token,
+            showsInvisibleCharacters: true,
             isRevertActionsEnabled: true
         )
         .padding()

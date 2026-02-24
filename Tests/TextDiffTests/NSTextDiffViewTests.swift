@@ -95,6 +95,25 @@ func nsTextDiffViewStyleChangeDoesNotRecomputeDiff() {
 
 @Test
 @MainActor
+func nsTextDiffViewDebugInvisiblesToggleDoesNotRecomputeDiff() {
+    var callCount = 0
+    let view = NSTextDiffView(
+        original: "old",
+        updated: "new",
+        mode: .token
+    ) { _, _, _ in
+        callCount += 1
+        return [DiffSegment(kind: .equal, tokenKind: .word, text: "\(callCount)")]
+    }
+
+    view.showsInvisibleCharacters = true
+    view.showsInvisibleCharacters = false
+
+    #expect(callCount == 1)
+}
+
+@Test
+@MainActor
 func nsTextDiffViewSetContentBatchesRecompute() {
     var callCount = 0
     let view = NSTextDiffView(

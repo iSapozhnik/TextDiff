@@ -60,6 +60,16 @@ public final class NSTextDiffView: NSView {
         }
     }
 
+    /// Debug overlay that draws visible symbols for otherwise invisible characters in red.
+    public var showsInvisibleCharacters: Bool = false {
+        didSet {
+            guard oldValue != showsInvisibleCharacters else {
+                return
+            }
+            needsDisplay = true
+        }
+    }
+
     /// Callback invoked when user clicks the revert icon.
     public var onRevertAction: ((TextDiffRevertAction) -> Void)?
 
@@ -201,6 +211,12 @@ public final class NSTextDiffView: NSView {
             }
 
             run.attributedText.draw(in: run.textRect)
+            if showsInvisibleCharacters {
+                drawInvisibleCharacters(for: run)
+            }
+        }
+        if showsInvisibleCharacters {
+            drawLineBreakMarkers(layout.lineBreakMarkers)
         }
 
         drawHoveredRevertAffordance(layout: layout)
@@ -633,6 +649,78 @@ public final class NSTextDiffView: NSView {
         strokeColor?.setStroke()
         strokePath.lineWidth = 1
         strokePath.stroke()
+    }
+
+    private func drawInvisibleCharacters(for run: LaidOutRun) {
+        guard run.segment.text.unicodeScalars.contains(where: { CharacterSet.whitespacesAndNewlines.contains($0) }) else {
+            return
+        }
+
+        let font = (run.attributedText.attribute(.font, at: 0, effectiveRange: nil) as? NSFont) ?? style.font
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: NSColor.systemRed
+        ]
+
+        var x = run.textRect.minX
+        for character in run.segment.text {
+            let source = String(character)
+            let width = (source as NSString).size(withAttributes: [.font: font]).width
+            defer { x += width }
+
+            guard let symbol = visibleSymbol(for: character) else {
+                continue
+            }
+
+            let symbolWidth = (symbol as NSString).size(withAttributes: attributes).width
+            let symbolX = x + max(0, (width - symbolWidth) / 2)
+            (symbol as NSString).draw(
+                at: CGPoint(x: symbolX, y: run.textRect.minY),
+                withAttributes: attributes
+            )
+        }
+    }
+
+    private func visibleSymbol(for character: Character) -> String? {
+        guard character.unicodeScalars.allSatisfy({ CharacterSet.whitespacesAndNewlines.contains($0) }) else {
+            return nil
+        }
+        if character == " " {
+            return "·"
+        }
+        if character == "\t" {
+            return "⇥"
+        }
+        if character == "\n" || character == "\r" {
+            return "↩"
+        }
+        if character == "\u{00A0}" {
+            return "⍽"
+        }
+        return "·"
+    }
+
+    private func drawLineBreakMarkers(_ markers: [CGPoint]) {
+        guard !markers.isEmpty else {
+            return
+        }
+
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: style.font,
+            .foregroundColor: NSColor.systemRed
+        ]
+        let symbol = "↩" as NSString
+        let symbolSize = symbol.size(withAttributes: attributes)
+
+        for marker in markers {
+            symbol.draw(
+                at: CGPoint(
+                    x: marker.x,
+                    y: marker.y - (symbolSize.height / 2)
+                ),
+                withAttributes: attributes
+            )
+        }
     }
 
     private static func modeKey(for mode: TextDiffComparisonMode) -> Int {
