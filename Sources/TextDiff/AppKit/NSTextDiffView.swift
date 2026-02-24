@@ -303,7 +303,9 @@ public final class NSTextDiffView: NSView {
         let context = DiffRevertActionResolver.interactionContext(
             segments: segments,
             runs: layout.runs,
-            mode: mode
+            mode: mode,
+            original: original,
+            updated: updated
         )
         cachedInteractionContext = context
         cachedInteractionWidth = width

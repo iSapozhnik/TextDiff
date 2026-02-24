@@ -62,7 +62,9 @@ final class DiffLayouterPerformanceTests: XCTestCase {
             let context = DiffRevertActionResolver.interactionContext(
                 segments: segments,
                 runs: layout.runs,
-                mode: .token
+                mode: .token,
+                original: original,
+                updated: updated
             )
             XCTAssertFalse(layout.runs.isEmpty)
             XCTAssertNotNil(context)

@@ -19,6 +19,7 @@ enum DiffRevertCandidateKind: Equatable {
 struct DiffRevertCandidate: Equatable {
     let id: Int
     let kind: DiffRevertCandidateKind
+    let tokenKind: DiffTokenKind
     let segmentIndices: [Int]
     let updatedRange: NSRange
     let replacementText: String
@@ -34,10 +35,16 @@ struct DiffRevertInteractionContext {
 }
 
 enum DiffRevertActionResolver {
-    static func indexedSegments(from segments: [DiffSegment]) -> [IndexedSegment] {
+    static func indexedSegments(
+        from segments: [DiffSegment],
+        original: String,
+        updated: String
+    ) -> [IndexedSegment] {
         var output: [IndexedSegment] = []
         output.reserveCapacity(segments.count)
 
+        let originalNSString = original as NSString
+        let updatedNSString = updated as NSString
         var originalCursor = 0
         var updatedCursor = 0
 
@@ -50,8 +57,12 @@ enum DiffRevertActionResolver {
             case .equal:
                 originalRange = NSRange(location: originalCursor, length: textLength)
                 updatedRange = NSRange(location: updatedCursor, length: textLength)
-                originalCursor += textLength
-                updatedCursor += textLength
+                if textMatches(segment.text, source: originalNSString, at: originalCursor) {
+                    originalCursor += textLength
+                }
+                if textMatches(segment.text, source: updatedNSString, at: updatedCursor) {
+                    updatedCursor += textLength
+                }
             case .delete:
                 originalRange = NSRange(location: originalCursor, length: textLength)
                 updatedRange = NSRange(location: updatedCursor, length: 0)
@@ -81,11 +92,28 @@ enum DiffRevertActionResolver {
         from segments: [DiffSegment],
         mode: TextDiffComparisonMode
     ) -> [DiffRevertCandidate] {
+        let original = segments
+            .filter { $0.kind != .insert }
+            .map(\.text)
+            .joined()
+        let updated = segments
+            .filter { $0.kind != .delete }
+            .map(\.text)
+            .joined()
+        return candidates(from: segments, mode: mode, original: original, updated: updated)
+    }
+
+    static func candidates(
+        from segments: [DiffSegment],
+        mode: TextDiffComparisonMode,
+        original: String,
+        updated: String
+    ) -> [DiffRevertCandidate] {
         guard mode == .token else {
             return []
         }
 
-        let indexed = indexedSegments(from: segments)
+        let indexed = indexedSegments(from: segments, original: original, updated: updated)
         guard !indexed.isEmpty else {
             return []
         }
@@ -109,6 +137,7 @@ enum DiffRevertActionResolver {
                         DiffRevertCandidate(
                             id: candidateID,
                             kind: .pairedReplacement,
+                            tokenKind: current.segment.tokenKind,
                             segmentIndices: [current.segmentIndex, next.segmentIndex],
                             updatedRange: next.updatedRange,
                             replacementText: current.segment.text,
@@ -129,6 +158,7 @@ enum DiffRevertActionResolver {
                         DiffRevertCandidate(
                             id: candidateID,
                             kind: .singleInsertion,
+                            tokenKind: current.segment.tokenKind,
                             segmentIndices: [current.segmentIndex],
                             updatedRange: current.updatedRange,
                             replacementText: "",
@@ -142,6 +172,7 @@ enum DiffRevertActionResolver {
                         DiffRevertCandidate(
                             id: candidateID,
                             kind: .singleDeletion,
+                            tokenKind: current.segment.tokenKind,
                             segmentIndices: [current.segmentIndex],
                             updatedRange: NSRange(location: current.updatedCursor, length: 0),
                             replacementText: current.segment.text,
@@ -164,9 +195,11 @@ enum DiffRevertActionResolver {
     static func interactionContext(
         segments: [DiffSegment],
         runs: [LaidOutRun],
-        mode: TextDiffComparisonMode
+        mode: TextDiffComparisonMode,
+        original: String,
+        updated: String
     ) -> DiffRevertInteractionContext? {
-        let candidates = candidates(from: segments, mode: mode)
+        let candidates = candidates(from: segments, mode: mode, original: original, updated: updated)
         guard !candidates.isEmpty else {
             return nil
         }
@@ -222,16 +255,31 @@ enum DiffRevertActionResolver {
         updated: String
     ) -> TextDiffRevertAction? {
         let nsUpdated = updated as NSString
-        guard candidate.updatedRange.location >= 0 else {
+        var updatedRange = candidate.updatedRange
+        if candidate.kind == .singleDeletion, updatedRange.location > nsUpdated.length {
+            updatedRange.location = nsUpdated.length
+        }
+        guard updatedRange.location >= 0 else {
             return nil
         }
-        guard NSMaxRange(candidate.updatedRange) <= nsUpdated.length else {
+        guard NSMaxRange(updatedRange) <= nsUpdated.length else {
             return nil
         }
 
+        let replacementText: String
+        if candidate.kind == .singleDeletion, candidate.tokenKind == .word {
+            replacementText = adjustedStandaloneWordDeletionReplacement(
+                candidate.replacementText,
+                insertionLocation: updatedRange.location,
+                updated: nsUpdated
+            )
+        } else {
+            replacementText = candidate.replacementText
+        }
+
         let resultingUpdated = nsUpdated.replacingCharacters(
-            in: candidate.updatedRange,
-            with: candidate.replacementText
+            in: updatedRange,
+            with: replacementText
         )
         let actionKind: TextDiffRevertActionKind
         switch candidate.kind {
@@ -245,8 +293,8 @@ enum DiffRevertActionResolver {
 
         return TextDiffRevertAction(
             kind: actionKind,
-            updatedRange: candidate.updatedRange,
-            replacementText: candidate.replacementText,
+            updatedRange: updatedRange,
+            replacementText: replacementText,
             originalTextFragment: candidate.originalTextFragment,
             updatedTextFragment: candidate.updatedTextFragment,
             resultingUpdated: resultingUpdated
@@ -255,5 +303,60 @@ enum DiffRevertActionResolver {
 
     private static func isLexicalChange(_ segment: DiffSegment) -> Bool {
         segment.tokenKind != .whitespace && segment.kind != .equal
+    }
+
+    private static func textMatches(_ text: String, source: NSString, at location: Int) -> Bool {
+        let length = text.utf16.count
+        guard location >= 0, location + length <= source.length else {
+            return false
+        }
+        return source.substring(with: NSRange(location: location, length: length)) == text
+    }
+
+    private static func adjustedStandaloneWordDeletionReplacement(
+        _ replacement: String,
+        insertionLocation: Int,
+        updated: NSString
+    ) -> String {
+        guard !replacement.isEmpty else {
+            return replacement
+        }
+        guard replacement.rangeOfCharacter(from: .alphanumerics) != nil else {
+            return replacement
+        }
+
+        let hasLeadingWhitespace = replacement.unicodeScalars.first
+            .map { CharacterSet.whitespacesAndNewlines.contains($0) } ?? false
+        let hasTrailingWhitespace = replacement.unicodeScalars.last
+            .map { CharacterSet.whitespacesAndNewlines.contains($0) } ?? false
+
+        let beforeIsWordLike: Bool
+        if insertionLocation > 0 {
+            let previous = updated.substring(with: NSRange(location: insertionLocation - 1, length: 1))
+            beforeIsWordLike = isWordLike(previous)
+        } else {
+            beforeIsWordLike = false
+        }
+
+        let afterIsWordLike: Bool
+        if insertionLocation < updated.length {
+            let next = updated.substring(with: NSRange(location: insertionLocation, length: 1))
+            afterIsWordLike = isWordLike(next)
+        } else {
+            afterIsWordLike = false
+        }
+
+        var output = replacement
+        if beforeIsWordLike && !hasLeadingWhitespace {
+            output = " " + output
+        }
+        if afterIsWordLike && !hasTrailingWhitespace {
+            output += " "
+        }
+        return output
+    }
+
+    private static func isWordLike(_ scalarString: String) -> Bool {
+        scalarString.rangeOfCharacter(from: .alphanumerics) != nil
     }
 }
