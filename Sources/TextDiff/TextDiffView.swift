@@ -217,14 +217,17 @@ public struct TextDiffView: View {
 }
 
 private struct RevertBindingPreview: View {
-    @State private var updated = "a default in-app purchase flow where they have to provide their email and password within the app"
+    @State private var updated = "To switch back to your computer, simply press any key on your keyboard."
 
     var body: some View {
-        TextDiffView(
-            original: "a default in app purchase flow where they have to provide their email and password within the app A",
+        var style = TextDiffStyle.default
+        style.font = .systemFont(ofSize: 13)
+        return TextDiffView(
+            original: "To switch back to your computer, just press any key on your keyboard.",
             updated: $updated,
+            style: style,
             mode: .token,
-            showsInvisibleCharacters: true,
+            showsInvisibleCharacters: false,
             isRevertActionsEnabled: true
         )
         .padding()

@@ -86,9 +86,13 @@ enum DiffTokenLayouter {
                 lineText: lineText,
                 lineTextWidth: lineTextWidth
             )
-            var textSize = CGSize(width: textMeasurement.textWidth, height: textHeight)
+            let standaloneTextWidth = measuredStandaloneTextWidth(for: piece.text, font: style.font)
+            var displayTextWidth = max(textMeasurement.textWidth, standaloneTextWidth)
+            var textSize = CGSize(width: displayTextWidth, height: textHeight)
             let chipInsets = effectiveChipInsets(for: style)
-            var runWidth = isChangedLexical ? textSize.width + chipInsets.left + chipInsets.right : textSize.width
+            var runWidth = isChangedLexical
+                ? displayTextWidth + chipInsets.left + chipInsets.right
+                : textMeasurement.textWidth
             let requiredWidth = leadingGap + runWidth
 
             let wrapped = lineHasContent && cursorX + requiredWidth > maxLineX
@@ -107,8 +111,11 @@ enum DiffTokenLayouter {
                     lineText: lineText,
                     lineTextWidth: lineTextWidth
                 )
-                textSize = CGSize(width: textMeasurement.textWidth, height: textHeight)
-                runWidth = isChangedLexical ? textSize.width + chipInsets.left + chipInsets.right : textSize.width
+                displayTextWidth = max(textMeasurement.textWidth, standaloneTextWidth)
+                textSize = CGSize(width: displayTextWidth, height: textHeight)
+                runWidth = isChangedLexical
+                    ? displayTextWidth + chipInsets.left + chipInsets.right
+                    : textMeasurement.textWidth
             }
 
             cursorX += leadingGap
@@ -201,6 +208,13 @@ enum DiffTokenLayouter {
             textWidth: textWidth,
             combinedLineWidth: combinedWidth
         )
+    }
+
+    private static func measuredStandaloneTextWidth(for text: String, font: NSFont) -> CGFloat {
+        guard !text.isEmpty else {
+            return 0
+        }
+        return (text as NSString).size(withAttributes: [.font: font]).width
     }
 
     private static func effectiveChipInsets(for style: TextDiffStyle) -> NSEdgeInsets {

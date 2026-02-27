@@ -345,6 +345,32 @@ func layouterDoesNotInjectAdjacencyGapAcrossUnchangedWhitespace() throws {
 }
 
 @Test
+func layouterPreventsInsertedTokenClipWithProportionalSystemFont() throws {
+    var style = TextDiffStyle.default
+    style.font = .systemFont(ofSize: 13)
+
+    let layout = DiffTokenLayouter.layout(
+        segments: [
+            DiffSegment(kind: .delete, tokenKind: .word, text: "just"),
+            DiffSegment(kind: .insert, tokenKind: .word, text: "simply")
+        ],
+        style: style,
+        availableWidth: 500,
+        contentInsets: zeroInsets
+    )
+
+    let insertedRunCandidate = layout.runs.first(where: {
+        $0.segment.kind == .insert && $0.segment.tokenKind == .word && $0.segment.text == "simply"
+    })
+    let insertedRun = try #require(insertedRunCandidate)
+    let insertedChip = try #require(insertedRun.chipRect)
+    let standaloneWidth = ("simply" as NSString).size(withAttributes: [.font: style.font]).width
+
+    #expect(insertedRun.textRect.width >= standaloneWidth - 0.0001)
+    #expect(insertedChip.maxX >= insertedRun.textRect.maxX - 0.0001)
+}
+
+@Test
 func layouterWrapsByTokenAndRespectsExplicitNewlines() {
     let layout = DiffTokenLayouter.layout(
         segments: [
