@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 
 struct LaidOutRun {
+    let segmentIndex: Int
     let segment: DiffSegment
     let attributedText: NSAttributedString
     let textRect: CGRect
@@ -14,6 +15,7 @@ struct LaidOutRun {
 
 struct DiffLayout {
     let runs: [LaidOutRun]
+    let lineBreakMarkers: [CGPoint]
     let contentSize: CGSize
 }
 
@@ -38,6 +40,7 @@ enum DiffTokenLayouter {
         var maxUsedX = lineStartX
         var lineCount = 1
         var lineHasContent = false
+        var lineBreakMarkers: [CGPoint] = []
         let lineText = NSMutableString()
         var lineTextWidth: CGFloat = 0
         var previousChangedLexical = false
@@ -54,6 +57,12 @@ enum DiffTokenLayouter {
 
         for piece in pieces(from: segments) {
             if piece.isLineBreak {
+                lineBreakMarkers.append(
+                    CGPoint(
+                        x: cursorX,
+                        y: lineTop + (lineHeight / 2)
+                    )
+                )
                 moveToNewLine()
                 continue
             }
@@ -63,7 +72,8 @@ enum DiffTokenLayouter {
             }
 
             let segment = DiffSegment(kind: piece.kind, tokenKind: piece.tokenKind, text: piece.text)
-            let isChangedLexical = segment.kind != .equal && segment.tokenKind != .whitespace
+            let isChangedLexical = segment.kind != .equal
+                && (segment.tokenKind != .whitespace || segment.kind == .delete)
             var leadingGap: CGFloat = 0
             if previousChangedLexical && isChangedLexical {
                 leadingGap = max(0, style.interChipSpacing)
@@ -76,9 +86,13 @@ enum DiffTokenLayouter {
                 lineText: lineText,
                 lineTextWidth: lineTextWidth
             )
-            var textSize = CGSize(width: textMeasurement.textWidth, height: textHeight)
+            let standaloneTextWidth = measuredStandaloneTextWidth(for: piece.text, font: style.font)
+            var displayTextWidth = max(textMeasurement.textWidth, standaloneTextWidth)
+            var textSize = CGSize(width: displayTextWidth, height: textHeight)
             let chipInsets = effectiveChipInsets(for: style)
-            var runWidth = isChangedLexical ? textSize.width + chipInsets.left + chipInsets.right : textSize.width
+            var runWidth = isChangedLexical
+                ? displayTextWidth + chipInsets.left + chipInsets.right
+                : textMeasurement.textWidth
             let requiredWidth = leadingGap + runWidth
 
             let wrapped = lineHasContent && cursorX + requiredWidth > maxLineX
@@ -97,8 +111,11 @@ enum DiffTokenLayouter {
                     lineText: lineText,
                     lineTextWidth: lineTextWidth
                 )
-                textSize = CGSize(width: textMeasurement.textWidth, height: textHeight)
-                runWidth = isChangedLexical ? textSize.width + chipInsets.left + chipInsets.right : textSize.width
+                displayTextWidth = max(textMeasurement.textWidth, standaloneTextWidth)
+                textSize = CGSize(width: displayTextWidth, height: textHeight)
+                runWidth = isChangedLexical
+                    ? displayTextWidth + chipInsets.left + chipInsets.right
+                    : textMeasurement.textWidth
             }
 
             cursorX += leadingGap
@@ -124,6 +141,7 @@ enum DiffTokenLayouter {
 
             runs.append(
                 LaidOutRun(
+                    segmentIndex: piece.segmentIndex,
                     segment: segment,
                     attributedText: attributedText,
                     textRect: textRect,
@@ -150,6 +168,7 @@ enum DiffTokenLayouter {
 
         return DiffLayout(
             runs: runs,
+            lineBreakMarkers: lineBreakMarkers,
             contentSize: CGSize(width: max(intrinsicWidth, usedWidth), height: contentHeight)
         )
     }
@@ -189,6 +208,13 @@ enum DiffTokenLayouter {
             textWidth: textWidth,
             combinedLineWidth: combinedWidth
         )
+    }
+
+    private static func measuredStandaloneTextWidth(for text: String, font: NSFont) -> CGFloat {
+        guard !text.isEmpty else {
+            return 0
+        }
+        return (text as NSString).size(withAttributes: [.font: font]).width
     }
 
     private static func effectiveChipInsets(for style: TextDiffStyle) -> NSEdgeInsets {
@@ -252,13 +278,14 @@ enum DiffTokenLayouter {
         var output: [LayoutPiece] = []
         output.reserveCapacity(segments.count)
 
-        for segment in segments {
+        for (segmentIndex, segment) in segments.enumerated() {
             var buffer = ""
             for scalar in segment.text.unicodeScalars {
                 if scalar == "\n" {
                     if !buffer.isEmpty {
                         output.append(
                             LayoutPiece(
+                                segmentIndex: segmentIndex,
                                 kind: segment.kind,
                                 tokenKind: segment.tokenKind,
                                 text: buffer,
@@ -269,6 +296,7 @@ enum DiffTokenLayouter {
                     }
                     output.append(
                         LayoutPiece(
+                            segmentIndex: segmentIndex,
                             kind: segment.kind,
                             tokenKind: .whitespace,
                             text: "",
@@ -283,6 +311,7 @@ enum DiffTokenLayouter {
             if !buffer.isEmpty {
                 output.append(
                     LayoutPiece(
+                        segmentIndex: segmentIndex,
                         kind: segment.kind,
                         tokenKind: segment.tokenKind,
                         text: buffer,
@@ -297,6 +326,7 @@ enum DiffTokenLayouter {
 }
 
 private struct LayoutPiece {
+    let segmentIndex: Int
     let kind: DiffOperationKind
     let tokenKind: DiffTokenKind
     let text: String

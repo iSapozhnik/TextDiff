@@ -50,6 +50,29 @@ public final class NSTextDiffView: NSView {
         }
     }
 
+    /// Enables hover affordances and revert action hit-testing.
+    public var isRevertActionsEnabled: Bool = false {
+        didSet {
+            guard oldValue != isRevertActionsEnabled else {
+                return
+            }
+            invalidateCachedLayout()
+        }
+    }
+
+    /// Debug overlay that draws visible symbols for otherwise invisible characters in red.
+    public var showsInvisibleCharacters: Bool = false {
+        didSet {
+            guard oldValue != showsInvisibleCharacters else {
+                return
+            }
+            needsDisplay = true
+        }
+    }
+
+    /// Callback invoked when user clicks the revert icon.
+    public var onRevertAction: ((TextDiffRevertAction) -> Void)?
+
     private var segments: [DiffSegment]
     private let diffProvider: DiffProvider
 
@@ -58,9 +81,34 @@ public final class NSTextDiffView: NSView {
     private var lastModeKey: Int
     private var isBatchUpdating = false
     private var pendingStyleInvalidation = false
+    private var segmentGeneration: Int = 0
 
     private var cachedWidth: CGFloat = -1
     private var cachedLayout: DiffLayout?
+
+    private var cachedInteractionContext: DiffRevertInteractionContext?
+    private var cachedInteractionWidth: CGFloat = -1
+    private var cachedInteractionGeneration: Int = -1
+
+    private var trackedArea: NSTrackingArea?
+    private var hoveredActionID: Int?
+    private var hoveredIconRect: CGRect?
+    private let hoverDismissDelay: TimeInterval = 0.5
+    private var pendingHoverDismissWorkItem: DispatchWorkItem?
+    private var hoverDismissGeneration: Int = 0
+    private var isPointingHandCursorActive = false
+
+    #if TESTING
+    private var testingHoverDismissScheduler: ((TimeInterval, @escaping () -> Void) -> Void)?
+    private var testingScheduledHoverDismissBlocks: [() -> Void] = []
+    #endif
+
+    private let hoverOutlineColor = NSColor.controlAccentColor.withAlphaComponent(0.9)
+    private let hoverButtonFillColor = NSColor.black
+    private let hoverButtonStrokeColor = NSColor.clear
+    private let hoverIconName = "arrow.turn.down.left"
+    private let hoverButtonSize = CGSize(width: 16, height: 16)
+    private let hoverButtonGap: CGFloat = 4
 
     override public var isFlipped: Bool {
         true
@@ -124,6 +172,22 @@ public final class NSTextDiffView: NSView {
         fatalError("Use init(original:updated:style:mode:)")
     }
 
+    override public func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let trackedArea {
+            removeTrackingArea(trackedArea)
+        }
+        let options: NSTrackingArea.Options = [
+            .mouseMoved,
+            .mouseEnteredAndExited,
+            .activeInKeyWindow,
+            .inVisibleRect
+        ]
+        let area = NSTrackingArea(rect: .zero, options: options, owner: self, userInfo: nil)
+        addTrackingArea(area)
+        trackedArea = area
+    }
+
     override public func setFrameSize(_ newSize: NSSize) {
         let previousWidth = frame.width
         super.setFrameSize(newSize)
@@ -147,7 +211,34 @@ public final class NSTextDiffView: NSView {
             }
 
             run.attributedText.draw(in: run.textRect)
+            if showsInvisibleCharacters {
+                drawInvisibleCharacters(for: run)
+            }
         }
+        if showsInvisibleCharacters {
+            drawLineBreakMarkers(layout.lineBreakMarkers)
+        }
+
+        drawHoveredRevertAffordance(layout: layout)
+    }
+
+    override public func mouseMoved(with event: NSEvent) {
+        super.mouseMoved(with: event)
+        let location = convert(event.locationInWindow, from: nil)
+        updateHoverState(location: location)
+    }
+
+    override public func mouseExited(with event: NSEvent) {
+        super.mouseExited(with: event)
+        scheduleHoverDismiss()
+    }
+
+    override public func mouseDown(with event: NSEvent) {
+        let location = convert(event.locationInWindow, from: nil)
+        if handleIconClick(at: location) {
+            return
+        }
+        super.mouseDown(with: event)
     }
 
     /// Atomically updates view inputs and recomputes diff segments at most once.
@@ -186,6 +277,7 @@ public final class NSTextDiffView: NSView {
         lastUpdated = updated
         lastModeKey = newModeKey
         segments = diffProvider(original, updated, mode)
+        segmentGeneration += 1
         invalidateCachedLayout()
         return true
     }
@@ -208,14 +300,330 @@ public final class NSTextDiffView: NSView {
 
         cachedWidth = width
         cachedLayout = layout
+        invalidateInteractionCache()
         return layout
+    }
+
+    private func interactionContext(for layout: DiffLayout) -> DiffRevertInteractionContext? {
+        guard isRevertActionsEnabled, mode == .token else {
+            return nil
+        }
+
+        let width = max(bounds.width, 1)
+        if let cachedInteractionContext,
+           abs(cachedInteractionWidth - width) <= 0.5,
+           cachedInteractionGeneration == segmentGeneration {
+            return cachedInteractionContext
+        }
+
+        let context = DiffRevertActionResolver.interactionContext(
+            segments: segments,
+            runs: layout.runs,
+            mode: mode,
+            original: original,
+            updated: updated
+        )
+        cachedInteractionContext = context
+        cachedInteractionWidth = width
+        cachedInteractionGeneration = segmentGeneration
+        return context
     }
 
     private func invalidateCachedLayout() {
         cachedLayout = nil
         cachedWidth = -1
+        invalidateInteractionCache()
+        cancelPendingHoverDismiss()
+        clearHoverStateNow()
         needsDisplay = true
         invalidateIntrinsicContentSize()
+    }
+
+    private func invalidateInteractionCache() {
+        cachedInteractionContext = nil
+        cachedInteractionWidth = -1
+        cachedInteractionGeneration = -1
+    }
+
+    private func updateHoverState(location: CGPoint) {
+        let layout = layoutForCurrentWidth()
+        guard let context = interactionContext(for: layout) else {
+            cancelPendingHoverDismiss()
+            clearHoverStateNow()
+            return
+        }
+
+        if let actionID = actionIDForHitTarget(at: location, layout: layout, context: context) {
+            let iconRect = iconRect(for: actionID, context: context)
+            if hoveredActionID == actionID {
+                cancelPendingHoverDismiss()
+                applyImmediateHover(actionID: actionID, iconRect: iconRect)
+            } else {
+                switchHoverImmediately(to: actionID, iconRect: iconRect)
+            }
+            setPointingHandCursorActive(iconRect?.contains(location) == true)
+            return
+        }
+
+        setPointingHandCursorActive(false)
+        scheduleHoverDismiss()
+    }
+
+    private func clearHoverState() {
+        cancelPendingHoverDismiss()
+        clearHoverStateNow()
+    }
+
+    private func clearHoverStateNow() {
+        guard hoveredActionID != nil || hoveredIconRect != nil || isPointingHandCursorActive else {
+            return
+        }
+        hoveredActionID = nil
+        hoveredIconRect = nil
+        setPointingHandCursorActive(false)
+        needsDisplay = true
+    }
+
+    private func applyImmediateHover(actionID: Int, iconRect: CGRect?) {
+        let didChangeHover = hoveredActionID != actionID || hoveredIconRect != iconRect
+        hoveredActionID = actionID
+        hoveredIconRect = iconRect
+        if didChangeHover {
+            needsDisplay = true
+        }
+    }
+
+    private func switchHoverImmediately(to actionID: Int, iconRect: CGRect?) {
+        cancelPendingHoverDismiss()
+        applyImmediateHover(actionID: actionID, iconRect: iconRect)
+    }
+
+    private func cancelPendingHoverDismiss() {
+        pendingHoverDismissWorkItem?.cancel()
+        pendingHoverDismissWorkItem = nil
+        hoverDismissGeneration += 1
+    }
+
+    private func scheduleHoverDismiss() {
+        guard pendingHoverDismissWorkItem == nil else {
+            return
+        }
+
+        hoverDismissGeneration += 1
+        let generation = hoverDismissGeneration
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self else {
+                return
+            }
+            guard self.hoverDismissGeneration == generation else {
+                return
+            }
+            self.pendingHoverDismissWorkItem = nil
+            self.clearHoverStateNow()
+        }
+        pendingHoverDismissWorkItem = workItem
+
+        #if TESTING
+        if let testingHoverDismissScheduler {
+            testingHoverDismissScheduler(hoverDismissDelay) {
+                workItem.perform()
+            }
+            return
+        }
+        #endif
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + hoverDismissDelay) {
+            workItem.perform()
+        }
+    }
+
+    private func setPointingHandCursorActive(_ isActive: Bool) {
+        guard isPointingHandCursorActive != isActive else {
+            return
+        }
+        isPointingHandCursorActive = isActive
+        if isActive {
+            NSCursor.pointingHand.push()
+        } else {
+            NSCursor.pop()
+        }
+    }
+
+    @discardableResult
+    private func handleIconClick(at location: CGPoint) -> Bool {
+        guard isRevertActionsEnabled, mode == .token else {
+            return false
+        }
+
+        let layout = layoutForCurrentWidth()
+        guard let context = interactionContext(for: layout),
+              let actionID = actionIDForHitTarget(at: location, layout: layout, context: context) else {
+            return false
+        }
+
+        guard let candidate = context.candidatesByID[actionID] else {
+            return false
+        }
+
+        if let action = DiffRevertActionResolver.action(from: candidate, updated: updated) {
+            onRevertAction?(action)
+        }
+        return true
+    }
+
+    private func actionIDForHitTarget(
+        at point: CGPoint,
+        layout: DiffLayout,
+        context: DiffRevertInteractionContext
+    ) -> Int? {
+        for actionID in context.candidatesByID.keys.sorted() {
+            let includeIcon = hoveredActionID == actionID
+            if isPointWithinActionHitTarget(
+                point,
+                actionID: actionID,
+                layout: layout,
+                context: context,
+                includeIcon: includeIcon
+            ) {
+                return actionID
+            }
+        }
+        return nil
+    }
+
+    private func isPointWithinActionHitTarget(
+        _ point: CGPoint,
+        actionID: Int,
+        layout: DiffLayout,
+        context: DiffRevertInteractionContext,
+        includeIcon: Bool
+    ) -> Bool {
+        if let runIndices = context.runIndicesByActionID[actionID] {
+            for runIndex in runIndices {
+                guard layout.runs.indices.contains(runIndex),
+                      let chipRect = layout.runs[runIndex].chipRect else {
+                    continue
+                }
+                if chipRect.contains(point) {
+                    return true
+                }
+            }
+        }
+
+        if includeIcon, let iconRect = iconRect(for: actionID, context: context), iconRect.contains(point) {
+            return true
+        }
+
+        return false
+    }
+
+    private func actionID(at point: CGPoint, layout: DiffLayout, context: DiffRevertInteractionContext) -> Int? {
+        for actionID in context.runIndicesByActionID.keys.sorted() {
+            guard let runIndices = context.runIndicesByActionID[actionID] else {
+                continue
+            }
+            for runIndex in runIndices {
+                guard layout.runs.indices.contains(runIndex),
+                      let chipRect = layout.runs[runIndex].chipRect else {
+                    continue
+                }
+                if chipRect.contains(point) {
+                    return actionID
+                }
+            }
+        }
+        return nil
+    }
+
+    private func iconRect(for actionID: Int, context: DiffRevertInteractionContext) -> CGRect? {
+        guard let unionRect = context.unionChipRectByActionID[actionID] else {
+            return nil
+        }
+
+        let maxX = bounds.maxX - hoverButtonSize.width - 2
+        var originX = unionRect.maxX + hoverButtonGap
+        if originX > maxX {
+            originX = max(bounds.minX + 2, unionRect.maxX - hoverButtonSize.width)
+        }
+
+        var originY = unionRect.midY - (hoverButtonSize.height / 2)
+        originY = max(bounds.minY + 2, min(originY, bounds.maxY - hoverButtonSize.height - 2))
+
+        return CGRect(origin: CGPoint(x: originX, y: originY), size: hoverButtonSize)
+    }
+
+    private func drawHoveredRevertAffordance(layout: DiffLayout) {
+        guard let hoveredActionID else {
+            return
+        }
+        guard let context = interactionContext(for: layout),
+              let chipRects = context.chipRectsByActionID[hoveredActionID],
+              !chipRects.isEmpty else {
+            return
+        }
+
+        hoverOutlineColor.setStroke()
+        if chipRects.count > 1, let unionRect = context.unionChipRectByActionID[hoveredActionID] {
+            let groupRect = unionRect.insetBy(dx: -1.5, dy: -1.5)
+            let groupPath = NSBezierPath(
+                roundedRect: groupRect,
+                xRadius: style.chipCornerRadius + 2,
+                yRadius: style.chipCornerRadius + 2
+            )
+            applyGroupStrokeStyle(to: groupPath)
+            groupPath.stroke()
+        } else {
+            for chipRect in chipRects {
+                let outlineRect = chipRect.insetBy(dx: -1.5, dy: -1.5)
+                let outlinePath = NSBezierPath(
+                    roundedRect: outlineRect,
+                    xRadius: style.chipCornerRadius + 1,
+                    yRadius: style.chipCornerRadius + 1
+                )
+                applyGroupStrokeStyle(to: outlinePath)
+                outlinePath.stroke()
+            }
+        }
+
+        let iconRect = hoveredIconRect ?? iconRect(for: hoveredActionID, context: context)
+        guard let iconRect else {
+            return
+        }
+        drawIconButton(in: iconRect)
+    }
+
+    private func drawIconButton(in rect: CGRect) {
+        let buttonPath = NSBezierPath(ovalIn: rect)
+        hoverButtonFillColor.setFill()
+        buttonPath.fill()
+        hoverButtonStrokeColor.setStroke()
+        buttonPath.lineWidth = 1
+        buttonPath.stroke()
+
+        let symbolRect = rect.insetBy(dx: 4, dy: 4)
+
+        let base = NSImage.SymbolConfiguration(pointSize: 10, weight: .semibold)
+        let white = NSImage.SymbolConfiguration(hierarchicalColor: .white)
+        let config = base
+            .applying(.preferringMonochrome())
+            .applying(white)
+
+        guard let icon = NSImage(systemSymbolName: hoverIconName, accessibilityDescription: "Revert"),
+              let configured = icon.withSymbolConfiguration(config) else {
+            return
+        }
+        configured.draw(in: symbolRect)
+    }
+
+    private func applyGroupStrokeStyle(to path: NSBezierPath) {
+        path.lineWidth = 1.5
+        switch style.groupStrokeStyle {
+        case .solid:
+            path.setLineDash([], count: 0, phase: 0)
+        case .dashed:
+            var pattern: [CGFloat] = [4, 2]
+            path.setLineDash(&pattern, count: pattern.count, phase: 0)
+        }
     }
 
     private func drawChip(
@@ -243,6 +651,78 @@ public final class NSTextDiffView: NSView {
         strokePath.stroke()
     }
 
+    private func drawInvisibleCharacters(for run: LaidOutRun) {
+        guard run.segment.text.unicodeScalars.contains(where: { CharacterSet.whitespacesAndNewlines.contains($0) }) else {
+            return
+        }
+
+        let font = (run.attributedText.attribute(.font, at: 0, effectiveRange: nil) as? NSFont) ?? style.font
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: NSColor.systemRed
+        ]
+
+        var x = run.textRect.minX
+        for character in run.segment.text {
+            let source = String(character)
+            let width = (source as NSString).size(withAttributes: [.font: font]).width
+            defer { x += width }
+
+            guard let symbol = visibleSymbol(for: character) else {
+                continue
+            }
+
+            let symbolWidth = (symbol as NSString).size(withAttributes: attributes).width
+            let symbolX = x + max(0, (width - symbolWidth) / 2)
+            (symbol as NSString).draw(
+                at: CGPoint(x: symbolX, y: run.textRect.minY),
+                withAttributes: attributes
+            )
+        }
+    }
+
+    private func visibleSymbol(for character: Character) -> String? {
+        guard character.unicodeScalars.allSatisfy({ CharacterSet.whitespacesAndNewlines.contains($0) }) else {
+            return nil
+        }
+        if character == " " {
+            return "·"
+        }
+        if character == "\t" {
+            return "⇥"
+        }
+        if character == "\n" || character == "\r" {
+            return "↩"
+        }
+        if character == "\u{00A0}" {
+            return "⍽"
+        }
+        return "·"
+    }
+
+    private func drawLineBreakMarkers(_ markers: [CGPoint]) {
+        guard !markers.isEmpty else {
+            return
+        }
+
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: style.font,
+            .foregroundColor: NSColor.systemRed
+        ]
+        let symbol = "↩" as NSString
+        let symbolSize = symbol.size(withAttributes: attributes)
+
+        for marker in markers {
+            symbol.draw(
+                at: CGPoint(
+                    x: marker.x,
+                    y: marker.y - (symbolSize.height / 2)
+                ),
+                withAttributes: attributes
+            )
+        }
+    }
+
     private static func modeKey(for mode: TextDiffComparisonMode) -> Int {
         switch mode {
         case .token:
@@ -251,4 +731,88 @@ public final class NSTextDiffView: NSView {
             return 1
         }
     }
+
+    #if TESTING
+    @discardableResult
+    func _testingSetHoveredFirstRevertAction() -> Bool {
+        let layout = layoutForCurrentWidth()
+        guard let context = interactionContext(for: layout),
+              let firstActionID = context.candidatesByID.keys.sorted().first else {
+            return false
+        }
+        cancelPendingHoverDismiss()
+        hoveredActionID = firstActionID
+        hoveredIconRect = iconRect(for: firstActionID, context: context)
+        needsDisplay = true
+        return true
+    }
+
+    @discardableResult
+    func _testingTriggerHoveredRevertAction() -> Bool {
+        guard let hoveredActionID else {
+            return false
+        }
+        let layout = layoutForCurrentWidth()
+        guard let context = interactionContext(for: layout),
+              let candidate = context.candidatesByID[hoveredActionID] else {
+            return false
+        }
+        if let action = DiffRevertActionResolver.action(from: candidate, updated: updated) {
+            onRevertAction?(action)
+        }
+        return true
+    }
+
+    func _testingHasInteractionContext() -> Bool {
+        let layout = layoutForCurrentWidth()
+        return interactionContext(for: layout) != nil
+    }
+
+    func _testingHoveredActionID() -> Int? {
+        hoveredActionID
+    }
+
+    func _testingHasPendingHoverDismiss() -> Bool {
+        pendingHoverDismissWorkItem != nil
+    }
+
+    func _testingActionCenters() -> [CGPoint] {
+        let layout = layoutForCurrentWidth()
+        guard let context = interactionContext(for: layout) else {
+            return []
+        }
+        return context.candidatesByID.keys.sorted().compactMap { actionID in
+            guard let rect = context.unionChipRectByActionID[actionID] else {
+                return nil
+            }
+            return CGPoint(x: rect.midX, y: rect.midY)
+        }
+    }
+
+    func _testingUpdateHover(location: CGPoint) {
+        updateHoverState(location: location)
+    }
+
+    func _testingEnableManualHoverDismissScheduler() {
+        testingScheduledHoverDismissBlocks.removeAll()
+        testingHoverDismissScheduler = { [weak self] _, block in
+            self?.testingScheduledHoverDismissBlocks.append(block)
+        }
+    }
+
+    @discardableResult
+    func _testingRunNextScheduledHoverDismiss() -> Bool {
+        guard !testingScheduledHoverDismissBlocks.isEmpty else {
+            return false
+        }
+        let block = testingScheduledHoverDismissBlocks.removeFirst()
+        block()
+        return true
+    }
+
+    func _testingClearManualHoverDismissScheduler() {
+        testingHoverDismissScheduler = nil
+        testingScheduledHoverDismissBlocks.removeAll()
+    }
+    #endif
 }

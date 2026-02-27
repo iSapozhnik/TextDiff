@@ -4,9 +4,13 @@ import SwiftUI
 /// A SwiftUI view that renders a merged visual diff between two strings.
 public struct TextDiffView: View {
     private let original: String
-    private let updated: String
+    private let updatedValue: String
+    private let updatedBinding: Binding<String>?
     private let mode: TextDiffComparisonMode
     private let style: TextDiffStyle
+    private let showsInvisibleCharacters: Bool
+    private let isRevertActionsEnabled: Bool
+    private let onRevertAction: ((TextDiffRevertAction) -> Void)?
 
     /// Creates a text diff view for two versions of content.
     ///
@@ -15,25 +19,65 @@ public struct TextDiffView: View {
     ///   - updated: The source text after edits.
     ///   - style: Visual style used to render additions, deletions, and unchanged text.
     ///   - mode: Comparison mode that controls token-level or character-refined output.
+    ///   - showsInvisibleCharacters: Debug-only overlay that draws whitespace/newline symbols in red.
     public init(
         original: String,
         updated: String,
         style: TextDiffStyle = .default,
-        mode: TextDiffComparisonMode = .token
+        mode: TextDiffComparisonMode = .token,
+        showsInvisibleCharacters: Bool = false
     ) {
         self.original = original
-        self.updated = updated
+        self.updatedValue = updated
+        self.updatedBinding = nil
         self.mode = mode
         self.style = style
+        self.showsInvisibleCharacters = showsInvisibleCharacters
+        self.isRevertActionsEnabled = false
+        self.onRevertAction = nil
+    }
+
+    /// Creates a text diff view backed by a mutable updated binding.
+    ///
+    /// - Parameters:
+    ///   - original: The source text before edits.
+    ///   - updated: The source text after edits.
+    ///   - style: Visual style used to render additions, deletions, and unchanged text.
+    ///   - mode: Comparison mode that controls token-level or character-refined output.
+    ///   - showsInvisibleCharacters: Debug-only overlay that draws whitespace/newline symbols in red.
+    ///   - isRevertActionsEnabled: Enables hover affordance and revert actions.
+    ///   - onRevertAction: Optional callback invoked on revert clicks.
+    public init(
+        original: String,
+        updated: Binding<String>,
+        style: TextDiffStyle = .default,
+        mode: TextDiffComparisonMode = .token,
+        showsInvisibleCharacters: Bool = false,
+        isRevertActionsEnabled: Bool = true,
+        onRevertAction: ((TextDiffRevertAction) -> Void)? = nil
+    ) {
+        self.original = original
+        self.updatedValue = updated.wrappedValue
+        self.updatedBinding = updated
+        self.mode = mode
+        self.style = style
+        self.showsInvisibleCharacters = showsInvisibleCharacters
+        self.isRevertActionsEnabled = isRevertActionsEnabled
+        self.onRevertAction = onRevertAction
     }
 
     /// The view body that renders the current diff content.
     public var body: some View {
+        let updated = updatedBinding?.wrappedValue ?? updatedValue
         DiffTextViewRepresentable(
             original: original,
             updated: updated,
+            updatedBinding: updatedBinding,
             style: style,
-            mode: mode
+            mode: mode,
+            showsInvisibleCharacters: showsInvisibleCharacters,
+            isRevertActionsEnabled: isRevertActionsEnabled,
+            onRevertAction: onRevertAction
         )
         .accessibilityLabel("Text diff")
     }
@@ -49,6 +93,7 @@ public struct TextDiffView: View {
 }
 
 #Preview("TextDiffView") {
+    @Previewable @State var updatedText = "Added a diff view. It looks good!"
     let font: NSFont = .systemFont(ofSize: 16, weight: .regular)
     let style = TextDiffStyle(
         additionsStyle: TextDiffChangeStyle(
@@ -65,9 +110,10 @@ public struct TextDiffView: View {
         textColor: .labelColor,
         font: font,
         chipCornerRadius: 3,
-        chipInsets: NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0),
+        chipInsets: NSEdgeInsets(top: 1, left: 0, bottom: 1, right: 0),
         interChipSpacing: 1,
-        lineSpacing: 2
+        lineSpacing: 2,
+        groupStrokeStyle: .dashed
     )
     VStack(alignment: .leading, spacing: 4) {
         Text("Diff by characters")
@@ -88,13 +134,14 @@ public struct TextDiffView: View {
             )
         }
         Divider()
-        Text("Diff by words")
+        Text("Diff by words and revertable")
             .bold()
             TextDiffView(
                 original: "Add a diff view! Looks good!",
-                updated: "Added a diff view. It looks good!",
+                updated: $updatedText,
                 style: style,
-                mode: .token
+                mode: .token,
+                isRevertActionsEnabled: true
             )
         HStack {
             Text("dog → fog:")
@@ -127,6 +174,10 @@ public struct TextDiffView: View {
     )
     .padding()
     .frame(width: 320)
+}
+
+#Preview("Revert Binding") {
+    RevertBindingPreview()
 }
 
 #Preview("Height diff") {
@@ -163,4 +214,23 @@ public struct TextDiffView: View {
         )
     }
     .padding()
+}
+
+private struct RevertBindingPreview: View {
+    @State private var updated = "To switch back to your computer, simply press any key on your keyboard."
+
+    var body: some View {
+        var style = TextDiffStyle.default
+        style.font = .systemFont(ofSize: 13)
+        return TextDiffView(
+            original: "To switch back to your computer, just press any key on your keyboard.",
+            updated: $updated,
+            style: style,
+            mode: .token,
+            showsInvisibleCharacters: false,
+            isRevertActionsEnabled: true
+        )
+        .padding()
+        .frame(width: 500)
+    }
 }

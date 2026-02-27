@@ -1,7 +1,7 @@
 import AppKit
 import SnapshotTesting
-import TextDiff
 import XCTest
+@testable import TextDiff
 
 final class NSTextDiffSnapshotTests: XCTestCase {
     override func invokeTest() {
@@ -67,6 +67,85 @@ final class NSTextDiffSnapshotTests: XCTestCase {
             style: style,
             size: CGSize(width: 300, height: 180),
             testName: "custom_style_spacing_strikethrough()"
+        )
+    }
+
+    @MainActor
+    func testHoverSingleAdditionShowsAffordance() {
+        assertNSTextDiffSnapshot(
+            original: "cat",
+            updated: "cat!",
+            mode: .token,
+            size: CGSize(width: 260, height: 90),
+            configureView: { view in
+                view.isRevertActionsEnabled = true
+                _ = view._testingSetHoveredFirstRevertAction()
+            },
+            testName: "hover_single_addition_affordance()"
+        )
+    }
+
+    @MainActor
+    func testHoverSingleDeletionShowsAffordance() {
+        assertNSTextDiffSnapshot(
+            original: "cat!",
+            updated: "cat",
+            mode: .token,
+            size: CGSize(width: 260, height: 90),
+            configureView: { view in
+                view.isRevertActionsEnabled = true
+                _ = view._testingSetHoveredFirstRevertAction()
+            },
+            testName: "hover_single_deletion_affordance()"
+        )
+    }
+
+    @MainActor
+    func testHoverPairShowsAffordance() {
+        assertNSTextDiffSnapshot(
+            original: "old value",
+            updated: "new value",
+            mode: .token,
+            size: CGSize(width: 280, height: 90),
+            configureView: { view in
+                view.isRevertActionsEnabled = true
+                _ = view._testingSetHoveredFirstRevertAction()
+            },
+            testName: "hover_pair_affordance()"
+        )
+    }
+
+    @MainActor
+    func testCharacterModeDoesNotShowAffordance() {
+        assertNSTextDiffSnapshot(
+            original: "Add a diff",
+            updated: "Added a diff",
+            mode: .character,
+            size: CGSize(width: 320, height: 110),
+            configureView: { view in
+                view.isRevertActionsEnabled = true
+                _ = view._testingSetHoveredFirstRevertAction()
+            },
+            testName: "character_mode_no_affordance()"
+        )
+    }
+
+    @MainActor
+    func testInvisibleCharactersDebugOverlay() {
+        var style = TextDiffStyle.default
+        style.font = .monospacedSystemFont(ofSize: 20, weight: .regular)
+        style.lineSpacing = 4
+        let text = "space tab\tnbsp:\u{00A0} newline:\nnext line"
+        assertNSTextDiffSnapshot(
+            original: text,
+            updated: text,
+            mode: .token,
+            style: style,
+            size: CGSize(width: 560, height: 170),
+            configureView: { view in
+                view.showsInvisibleCharacters = true
+            },
+            testName: "invisible_characters_debug_overlay()"
         )
     }
 
