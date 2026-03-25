@@ -58,6 +58,15 @@ public enum TextDiffEngine {
                     segments.append(
                         DiffSegment(kind: .equal, tokenKind: .whitespace, text: deletedWhitespace)
                     )
+                } else if isAdjacentToInsertedLexicalToken(
+                    operations: operations,
+                    runStart: runStart,
+                    runEnd: runEnd
+                ) {
+                    let deletedWhitespace = whitespaceRun.map(\.token.text).joined()
+                    segments.append(
+                        DiffSegment(kind: .delete, tokenKind: .whitespace, text: deletedWhitespace)
+                    )
                 }
 
                 index = runEnd
@@ -155,13 +164,40 @@ public enum TextDiffEngine {
         runStart: Int,
         runEnd: Int
     ) -> Bool {
+        isAdjacentToLexicalToken(
+            operations: operations,
+            runStart: runStart,
+            runEnd: runEnd,
+            kind: .delete
+        )
+    }
+
+    private static func isAdjacentToInsertedLexicalToken(
+        operations: [MyersDiff.Operation],
+        runStart: Int,
+        runEnd: Int
+    ) -> Bool {
+        isAdjacentToLexicalToken(
+            operations: operations,
+            runStart: runStart,
+            runEnd: runEnd,
+            kind: .insert
+        )
+    }
+
+    private static func isAdjacentToLexicalToken(
+        operations: [MyersDiff.Operation],
+        runStart: Int,
+        runEnd: Int,
+        kind: DiffOperationKind
+    ) -> Bool {
         if let previousLexicalIndex = previousLexicalOperationIndex(in: operations, before: runStart),
-           operations[previousLexicalIndex].kind == .delete {
+           operations[previousLexicalIndex].kind == kind {
             return true
         }
 
         if let nextLexicalIndex = nextLexicalOperationIndex(in: operations, after: runEnd),
-           operations[nextLexicalIndex].kind == .delete {
+           operations[nextLexicalIndex].kind == kind {
             return true
         }
 

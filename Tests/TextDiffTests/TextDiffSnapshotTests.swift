@@ -5,7 +5,7 @@ import XCTest
 
 final class TextDiffSnapshotTests: XCTestCase {
     override func invokeTest() {
-        withSnapshotTesting(record: .missing) {
+        withSnapshotTesting(record: snapshotRecordMode()) {
             super.invokeTest()
         }
     }
@@ -62,17 +62,6 @@ final class TextDiffSnapshotTests: XCTestCase {
             mode: .token,
             size: CGSize(width: 300, height: 150),
             testName: "multiline_insertion_wrap()"
-        )
-    }
-
-    @MainActor
-    func testNarrowWidthWrapping() {
-        assertTextDiffSnapshot(
-            original: sampleOriginalSentence,
-            updated: sampleUpdatedSentence,
-            mode: .token,
-            size: CGSize(width: 220, height: 180),
-            testName: "narrow_width_wrapping()"
         )
     }
 

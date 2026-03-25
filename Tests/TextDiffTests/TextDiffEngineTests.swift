@@ -52,6 +52,25 @@ func punctuationEditsAreLexicalDiffSegments() {
 }
 
 @Test
+func punctuationInsertionReplacingWhitespaceKeepsWhitespaceDeletionVisible() {
+    let segments = TextDiffEngine.diff(
+        original: "in app purchase",
+        updated: "in-app purchase"
+    )
+
+    let deletedWhitespaceIndex = segments.firstIndex {
+        $0.kind == .delete && $0.tokenKind == .whitespace && $0.text == " "
+    }
+    let insertedHyphenIndex = segments.firstIndex {
+        $0.kind == .insert && $0.tokenKind == .punctuation && $0.text == "-"
+    }
+
+    #expect(deletedWhitespaceIndex != nil)
+    #expect(insertedHyphenIndex != nil)
+    #expect((deletedWhitespaceIndex ?? 0) < (insertedHyphenIndex ?? 0))
+}
+
+@Test
 func whitespaceOnlyChangesPreserveUpdatedLayoutWithoutWhitespaceDiffMarkers() {
     let updated = "Hello world\n"
     let segments = TextDiffEngine.diff(original: "Hello   world", updated: updated)
@@ -169,6 +188,11 @@ func defaultStyleInterChipSpacingMatchesCurrentDefault() {
 }
 
 @Test
+func defaultGroupStrokeStyleIsSolid() {
+    #expect(TextDiffStyle.default.groupStrokeStyle == .solid)
+}
+
+@Test
 func textDiffStyleDefaultUsesDefaultAdditionAndRemovalStyles() {
     let style = TextDiffStyle.default
     expectColorEqual(style.additionsStyle.fillColor, TextDiffChangeStyle.defaultAddition.fillColor)
@@ -194,7 +218,8 @@ func textDiffStyleProtocolInitConvertsCustomConformers() {
 
     let style = TextDiffStyle(
         additionsStyle: additions,
-        removalsStyle: removals
+        removalsStyle: removals,
+        groupStrokeStyle: .dashed
     )
 
     expectColorEqual(style.additionsStyle.fillColor, additions.fillColor)
@@ -206,6 +231,7 @@ func textDiffStyleProtocolInitConvertsCustomConformers() {
     expectColorEqual(style.removalsStyle.strokeColor, removals.strokeColor)
     expectColorEqual(style.removalsStyle.textColorOverride ?? .clear, removals.textColorOverride ?? .clear)
     #expect(style.removalsStyle.strikethrough == removals.strikethrough)
+    #expect(style.groupStrokeStyle == .dashed)
 }
 
 @Test
@@ -267,6 +293,34 @@ func layouterAppliesGapForPunctuationAdjacency() {
 }
 
 @Test
+func layouterRendersDeletedWhitespaceAsChipWhenReplacedByPunctuation() throws {
+    let style = TextDiffStyle.default
+    let layout = DiffTokenLayouter.layout(
+        segments: [
+            DiffSegment(kind: .equal, tokenKind: .word, text: "in"),
+            DiffSegment(kind: .delete, tokenKind: .whitespace, text: " "),
+            DiffSegment(kind: .insert, tokenKind: .punctuation, text: "-"),
+            DiffSegment(kind: .equal, tokenKind: .word, text: "app")
+        ],
+        style: style,
+        availableWidth: 500,
+        contentInsets: zeroInsets
+    )
+
+    let deletedWhitespaceRun = layout.runs.first {
+        $0.segment.kind == .delete && $0.segment.tokenKind == .whitespace
+    }
+    let insertedHyphenRun = layout.runs.first {
+        $0.segment.kind == .insert && $0.segment.tokenKind == .punctuation && $0.segment.text == "-"
+    }
+
+    let deletedWhitespaceChip = try #require(deletedWhitespaceRun?.chipRect)
+    let insertedHyphenChip = try #require(insertedHyphenRun?.chipRect)
+    #expect(deletedWhitespaceChip.width > 0)
+    #expect(insertedHyphenChip.width > 0)
+}
+
+@Test
 func layouterDoesNotInjectAdjacencyGapAcrossUnchangedWhitespace() throws {
     let style = TextDiffStyle.default
     let layout = DiffTokenLayouter.layout(
@@ -288,6 +342,32 @@ func layouterDoesNotInjectAdjacencyGapAcrossUnchangedWhitespace() throws {
     let insertChip = try #require(insertRun.chipRect)
     let actualGap = insertChip.minX - deleteChip.maxX
     #expect(abs(actualGap - whitespaceRun.textRect.width) < 0.0001)
+}
+
+@Test
+func layouterPreventsInsertedTokenClipWithProportionalSystemFont() throws {
+    var style = TextDiffStyle.default
+    style.font = .systemFont(ofSize: 13)
+
+    let layout = DiffTokenLayouter.layout(
+        segments: [
+            DiffSegment(kind: .delete, tokenKind: .word, text: "just"),
+            DiffSegment(kind: .insert, tokenKind: .word, text: "simply")
+        ],
+        style: style,
+        availableWidth: 500,
+        contentInsets: zeroInsets
+    )
+
+    let insertedRunCandidate = layout.runs.first(where: {
+        $0.segment.kind == .insert && $0.segment.tokenKind == .word && $0.segment.text == "simply"
+    })
+    let insertedRun = try #require(insertedRunCandidate)
+    let insertedChip = try #require(insertedRun.chipRect)
+    let standaloneWidth = ("simply" as NSString).size(withAttributes: [.font: style.font]).width
+
+    #expect(insertedRun.textRect.width >= standaloneWidth - 0.0001)
+    #expect(insertedChip.maxX >= insertedRun.textRect.maxX - 0.0001)
 }
 
 @Test

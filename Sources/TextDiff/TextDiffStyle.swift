@@ -20,6 +20,8 @@ public struct TextDiffStyle: @unchecked Sendable {
     public var interChipSpacing: CGFloat
     /// Additional vertical spacing between wrapped lines.
     public var lineSpacing: CGFloat
+    /// Stroke style used for interactive revert-group outlines.
+    public var groupStrokeStyle: TextDiffGroupStrokeStyle
 
     /// Creates a style for rendering text diffs.
     ///
@@ -32,6 +34,7 @@ public struct TextDiffStyle: @unchecked Sendable {
     ///   - chipInsets: Insets applied around changed-token text when drawing chips.
     ///   - interChipSpacing: Gap between adjacent changed lexical chips.
     ///   - lineSpacing: Additional vertical spacing between wrapped lines.
+    ///   - groupStrokeStyle: Stroke style for revert-group hover outlines.
     public init(
         additionsStyle: TextDiffChangeStyle = .defaultAddition,
         removalsStyle: TextDiffChangeStyle = .defaultRemoval,
@@ -40,7 +43,8 @@ public struct TextDiffStyle: @unchecked Sendable {
         chipCornerRadius: CGFloat = 4,
         chipInsets: NSEdgeInsets = NSEdgeInsets(top: 1, left: 3, bottom: 1, right: 3),
         interChipSpacing: CGFloat = 0,
-        lineSpacing: CGFloat = 2
+        lineSpacing: CGFloat = 2,
+        groupStrokeStyle: TextDiffGroupStrokeStyle = .solid
     ) {
         self.additionsStyle = additionsStyle
         self.removalsStyle = removalsStyle
@@ -50,6 +54,7 @@ public struct TextDiffStyle: @unchecked Sendable {
         self.chipInsets = chipInsets
         self.interChipSpacing = interChipSpacing
         self.lineSpacing = lineSpacing
+        self.groupStrokeStyle = groupStrokeStyle
     }
 
     /// Creates a style by converting protocol-based operation styles to concrete change styles.
@@ -63,6 +68,7 @@ public struct TextDiffStyle: @unchecked Sendable {
     ///   - chipInsets: Insets applied around changed-token text when drawing chips.
     ///   - interChipSpacing: Gap between adjacent changed lexical chips.
     ///   - lineSpacing: Additional vertical spacing between wrapped lines.
+    ///   - groupStrokeStyle: Stroke style for revert-group hover outlines.
     public init(
         additionsStyle: some TextDiffStyling,
         removalsStyle: some TextDiffStyling,
@@ -71,7 +77,8 @@ public struct TextDiffStyle: @unchecked Sendable {
         chipCornerRadius: CGFloat = 4,
         chipInsets: NSEdgeInsets = NSEdgeInsets(top: 1, left: 3, bottom: 1, right: 3),
         interChipSpacing: CGFloat = 0,
-        lineSpacing: CGFloat = 2
+        lineSpacing: CGFloat = 2,
+        groupStrokeStyle: TextDiffGroupStrokeStyle = .solid
     ) {
         self.init(
             additionsStyle: TextDiffChangeStyle(additionsStyle),
@@ -81,7 +88,8 @@ public struct TextDiffStyle: @unchecked Sendable {
             chipCornerRadius: chipCornerRadius,
             chipInsets: chipInsets,
             interChipSpacing: interChipSpacing,
-            lineSpacing: lineSpacing
+            lineSpacing: lineSpacing,
+            groupStrokeStyle: groupStrokeStyle
         )
     }
 

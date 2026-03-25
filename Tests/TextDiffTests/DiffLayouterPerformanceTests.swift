@@ -17,6 +17,10 @@ final class DiffLayouterPerformanceTests: XCTestCase {
         runLayoutPerformanceTest(wordCount: 1000)
     }
 
+    func testLayoutPerformance500WordsWithRevertInteractions() {
+        runLayoutWithRevertInteractionsPerformanceTest(wordCount: 500)
+    }
+
     private func runLayoutPerformanceTest(wordCount: Int) {
         let style = TextDiffStyle.default
         let verticalInset = DiffTextLayoutMetrics.verticalTextInset(for: style)
@@ -27,6 +31,30 @@ final class DiffLayouterPerformanceTests: XCTestCase {
         let updated = Self.replacingLastWord(in: original)
         let segments = TextDiffEngine.diff(original: original, updated: updated, mode: .character)
 
+        var lastLayout: DiffLayout?
+        measure(metrics: [XCTClockMetric()]) {
+            lastLayout = DiffTokenLayouter.layout(
+                segments: segments,
+                style: style,
+                availableWidth: availableWidth,
+                contentInsets: contentInsets
+            )
+        }
+        XCTAssertFalse(lastLayout?.runs.isEmpty ?? true)
+    }
+
+    private func runLayoutWithRevertInteractionsPerformanceTest(wordCount: Int) {
+        let style = TextDiffStyle.default
+        let verticalInset = DiffTextLayoutMetrics.verticalTextInset(for: style)
+        let contentInsets = NSEdgeInsets(top: verticalInset, left: 0, bottom: verticalInset, right: 0)
+        let availableWidth: CGFloat = 520
+
+        let original = Self.largeText(wordCount: wordCount)
+        let updated = Self.replacingLastWord(in: original)
+        let segments = TextDiffEngine.diff(original: original, updated: updated, mode: .token)
+
+        var lastLayout: DiffLayout?
+        var lastContext: DiffRevertInteractionContext?
         measure(metrics: [XCTClockMetric()]) {
             let layout = DiffTokenLayouter.layout(
                 segments: segments,
@@ -34,8 +62,18 @@ final class DiffLayouterPerformanceTests: XCTestCase {
                 availableWidth: availableWidth,
                 contentInsets: contentInsets
             )
-            XCTAssertFalse(layout.runs.isEmpty)
+            let context = DiffRevertActionResolver.interactionContext(
+                segments: segments,
+                runs: layout.runs,
+                mode: .token,
+                original: original,
+                updated: updated
+            )
+            lastLayout = layout
+            lastContext = context
         }
+        XCTAssertFalse(lastLayout?.runs.isEmpty ?? true)
+        XCTAssertNotNil(lastContext)
     }
 
     private static func largeText(wordCount: Int) -> String {

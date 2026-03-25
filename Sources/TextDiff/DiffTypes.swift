@@ -49,3 +49,45 @@ public struct DiffSegment: Sendable, Equatable {
         self.text = text
     }
 }
+
+/// The change variant represented by a user-initiated revert action.
+public enum TextDiffRevertActionKind: Sendable, Equatable {
+    /// Revert a standalone inserted segment by removing it from updated text.
+    case singleInsertion
+    /// Revert a standalone deleted segment by inserting it into updated text.
+    case singleDeletion
+    /// Revert an adjacent delete+insert replacement pair.
+    case pairedReplacement
+}
+
+/// A revert intent payload describing how to edit updated text toward original text.
+public struct TextDiffRevertAction: Sendable, Equatable {
+    /// The semantic action kind that triggered this payload.
+    public let kind: TextDiffRevertActionKind
+    /// The UTF-16 range in pre-click updated text to replace.
+    public let updatedRange: NSRange
+    /// The text used to replace `updatedRange`.
+    public let replacementText: String
+    /// Optional source-side text fragment associated with this action.
+    public let originalTextFragment: String?
+    /// Optional updated-side text fragment associated with this action.
+    public let updatedTextFragment: String?
+    /// The resulting updated text after applying the replacement.
+    public let resultingUpdated: String
+
+    public init(
+        kind: TextDiffRevertActionKind,
+        updatedRange: NSRange,
+        replacementText: String,
+        originalTextFragment: String?,
+        updatedTextFragment: String?,
+        resultingUpdated: String
+    ) {
+        self.kind = kind
+        self.updatedRange = updatedRange
+        self.replacementText = replacementText
+        self.originalTextFragment = originalTextFragment
+        self.updatedTextFragment = updatedTextFragment
+        self.resultingUpdated = resultingUpdated
+    }
+}
