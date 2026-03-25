@@ -154,3 +154,17 @@ Update baselines intentionally:
 2. Run `swift test 2>&1 | xcsift --quiet` once to rewrite baselines.
 3. Switch the suite trait back to `.missing`.
 4. Review snapshot image diffs in your PR before merging.
+
+## Performance Testing
+
+- Performance baselines for `DiffLayouterPerformanceTests` are stored under `.swiftpm/xcode/xcshareddata/xcbaselines/TextDiffTests.xcbaseline/`.
+- `swift test` runs the performance tests, but it does not surface the committed Xcode baseline values in its output.
+- For baseline-aware runs, use the generated SwiftPM workspace and the `TextDiff` scheme.
+
+Run the layouter performance suite with Xcode:
+
+```bash
+xcodebuild -workspace .swiftpm/xcode/package.xcworkspace -scheme TextDiff -destination 'platform=macOS' -configuration Debug test -only-testing:TextDiffTests/DiffLayouterPerformanceTests 2>&1 | xcsift
+```
+
+If you need the raw measured averages for comparison, run the same command once without `xcsift` because XCTest prints the per-test values directly in the plain `xcodebuild` output.
