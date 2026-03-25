@@ -349,21 +349,11 @@ enum DiffRevertActionResolver {
         let hasTrailingWhitespace = replacement.unicodeScalars.last
             .map { CharacterSet.whitespacesAndNewlines.contains($0) } ?? false
 
-        let beforeIsWordLike: Bool
-        if insertionLocation > 0 {
-            let previous = updated.substring(with: NSRange(location: insertionLocation - 1, length: 1))
-            beforeIsWordLike = isWordLike(previous)
-        } else {
-            beforeIsWordLike = false
-        }
-
-        let afterIsWordLike: Bool
-        if insertionLocation < updated.length {
-            let next = updated.substring(with: NSRange(location: insertionLocation, length: 1))
-            afterIsWordLike = isWordLike(next)
-        } else {
-            afterIsWordLike = false
-        }
+        let updatedString = updated as String
+        let beforeIsWordLike = characterBeforeUTF16Offset(insertionLocation, in: updatedString)
+            .map(isWordLike) ?? false
+        let afterIsWordLike = characterAtUTF16Offset(insertionLocation, in: updatedString)
+            .map(isWordLike) ?? false
 
         var output = replacement
         if beforeIsWordLike && !hasLeadingWhitespace {
@@ -386,10 +376,11 @@ enum DiffRevertActionResolver {
             return range
         }
 
-        let hasLeadingWhitespace = range.location > 0
-            && isWhitespaceCharacter(updated.substring(with: NSRange(location: range.location - 1, length: 1)))
-        let hasTrailingWhitespace = NSMaxRange(range) < updated.length
-            && isWhitespaceCharacter(updated.substring(with: NSRange(location: NSMaxRange(range), length: 1)))
+        let updatedString = updated as String
+        let hasLeadingWhitespace = characterBeforeUTF16Offset(range.location, in: updatedString)
+            .map(isWhitespaceCharacter) ?? false
+        let hasTrailingWhitespace = characterAtUTF16Offset(NSMaxRange(range), in: updatedString)
+            .map(isWhitespaceCharacter) ?? false
 
         if hasLeadingWhitespace, hasTrailingWhitespace {
             return NSRange(location: range.location, length: range.length + 1)
@@ -412,5 +403,27 @@ enum DiffRevertActionResolver {
 
     private static func isWordLike(_ scalarString: String) -> Bool {
         scalarString.rangeOfCharacter(from: .alphanumerics) != nil
+    }
+
+    private static func characterBeforeUTF16Offset(_ offset: Int, in string: String) -> String? {
+        guard offset > 0 else {
+            return nil
+        }
+        let index = String.Index(utf16Offset: offset, in: string)
+        guard index > string.startIndex else {
+            return nil
+        }
+        return String(string[string.index(before: index)])
+    }
+
+    private static func characterAtUTF16Offset(_ offset: Int, in string: String) -> String? {
+        guard offset >= 0 else {
+            return nil
+        }
+        let index = String.Index(utf16Offset: offset, in: string)
+        guard index < string.endIndex else {
+            return nil
+        }
+        return String(string[index])
     }
 }

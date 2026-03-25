@@ -139,6 +139,24 @@ func standaloneDeletionAtEndRevertRestoresSpacing() throws {
 }
 
 @Test
+func standaloneDeletionAfterSupplementaryPlaneLetterRestoresSpacing() throws {
+    let original = "𐐀 cat"
+    let updated = "𐐀"
+    let segments = TextDiffEngine.diff(original: original, updated: updated, mode: .token)
+
+    let candidates = DiffRevertActionResolver.candidates(
+        from: segments,
+        mode: .token,
+        original: original,
+        updated: updated
+    )
+    let deletion = try #require(candidates.first(where: { $0.kind == .singleDeletion }))
+
+    let action = try #require(DiffRevertActionResolver.action(from: deletion, updated: updated))
+    #expect(action.resultingUpdated == original)
+}
+
+@Test
 func hyphenReplacingWhitespaceRevertRestoresOriginalSpacing() throws {
     let original = "in app purchase"
     let updated = "in-app purchase"
