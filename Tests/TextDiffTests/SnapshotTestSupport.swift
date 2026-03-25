@@ -111,6 +111,10 @@ func assertNSTextDiffSnapshot(
 }
 
 private func configureSnapshotArtifactsDirectory(filePath: StaticString) {
+    if getenv("SNAPSHOT_ARTIFACTS") != nil {
+        return
+    }
+
     let fileURL = URL(fileURLWithPath: "\(filePath)")
     let repoRootURL = fileURL
         .deletingLastPathComponent() // TextDiffTests
