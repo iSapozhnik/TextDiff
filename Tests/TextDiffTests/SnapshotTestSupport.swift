@@ -134,7 +134,7 @@ private func renderSnapshotImage1x(view: NSView, size: CGSize) -> NSImage {
         samplesPerPixel: 4,
         hasAlpha: true,
         isPlanar: false,
-        colorSpaceName: .deviceRGB,
+        colorSpaceName: .calibratedRGB,
         bytesPerRow: 0,
         bitsPerPixel: 0
     )!
