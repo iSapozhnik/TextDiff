@@ -26,6 +26,29 @@ func candidatesBuildPairedReplacementForAdjacentDeleteInsert() throws {
 }
 
 @Test
+func indexedSegmentsAdvancePastEqualSegmentsEvenWhenTextValidationFails() {
+    let segments = [
+        DiffSegment(kind: .equal, tokenKind: .word, text: "abc"),
+        DiffSegment(kind: .delete, tokenKind: .word, text: "X"),
+        DiffSegment(kind: .insert, tokenKind: .word, text: "Y")
+    ]
+
+    let indexed = DiffRevertActionResolver.indexedSegments(
+        from: segments,
+        original: "zzzX",
+        updated: "zzzY"
+    )
+
+    #expect(indexed.count == 3)
+    #expect(indexed[0].originalRange == NSRange(location: 0, length: 3))
+    #expect(indexed[0].updatedRange == NSRange(location: 0, length: 3))
+    #expect(indexed[1].originalRange == NSRange(location: 3, length: 1))
+    #expect(indexed[1].updatedRange == NSRange(location: 3, length: 0))
+    #expect(indexed[2].originalRange == NSRange(location: 4, length: 0))
+    #expect(indexed[2].updatedRange == NSRange(location: 3, length: 1))
+}
+
+@Test
 func candidatesDoNotPairWhenAnySegmentExistsBetweenDeleteAndInsert() {
     let segments = [
         DiffSegment(kind: .delete, tokenKind: .word, text: "old"),

@@ -57,12 +57,20 @@ enum DiffRevertActionResolver {
             case .equal:
                 originalRange = NSRange(location: originalCursor, length: textLength)
                 updatedRange = NSRange(location: updatedCursor, length: textLength)
-                if textMatches(segment.text, source: originalNSString, at: originalCursor) {
-                    originalCursor += textLength
-                }
-                if textMatches(segment.text, source: updatedNSString, at: updatedCursor) {
-                    updatedCursor += textLength
-                }
+                let originalMatches = textMatches(segment.text, source: originalNSString, at: originalCursor)
+                let updatedMatches = textMatches(segment.text, source: updatedNSString, at: updatedCursor)
+                #if !TESTING
+                assert(
+                    originalMatches,
+                    "Equal segment text mismatch in original at \(originalCursor) for segment \(index): \(segment.text)"
+                )
+                assert(
+                    updatedMatches,
+                    "Equal segment text mismatch in updated at \(updatedCursor) for segment \(index): \(segment.text)"
+                )
+                #endif
+                originalCursor += textLength
+                updatedCursor += textLength
             case .delete:
                 originalRange = NSRange(location: originalCursor, length: textLength)
                 updatedRange = NSRange(location: updatedCursor, length: 0)
