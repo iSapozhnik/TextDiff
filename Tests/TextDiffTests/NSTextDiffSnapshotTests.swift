@@ -135,7 +135,7 @@ final class NSTextDiffSnapshotTests: XCTestCase {
             size: CGSize(width: 320, height: 110),
             configureView: { view in
                 view.isRevertActionsEnabled = true
-                _ = view._testingSetHoveredFirstRevertAction()
+                XCTAssertFalse(view._testingSetHoveredFirstRevertAction())
             },
             testName: "character_mode_no_affordance()"
         )

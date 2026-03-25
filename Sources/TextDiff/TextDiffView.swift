@@ -134,7 +134,7 @@ public struct TextDiffView: View {
             )
         }
         Divider()
-        Text("Diff by words and revertable")
+        Text("Diff by words and revertible")
             .bold()
             TextDiffView(
                 original: "Add a diff view! Looks good!",

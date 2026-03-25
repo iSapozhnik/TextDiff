@@ -369,11 +369,6 @@ public final class NSTextDiffView: NSView {
         scheduleHoverDismiss()
     }
 
-    private func clearHoverState() {
-        cancelPendingHoverDismiss()
-        clearHoverStateNow()
-    }
-
     private func clearHoverStateNow() {
         guard hoveredActionID != nil || hoveredIconRect != nil || isPointingHandCursorActive else {
             return
@@ -515,24 +510,6 @@ public final class NSTextDiffView: NSView {
         }
 
         return false
-    }
-
-    private func actionID(at point: CGPoint, layout: DiffLayout, context: DiffRevertInteractionContext) -> Int? {
-        for actionID in context.runIndicesByActionID.keys.sorted() {
-            guard let runIndices = context.runIndicesByActionID[actionID] else {
-                continue
-            }
-            for runIndex in runIndices {
-                guard layout.runs.indices.contains(runIndex),
-                      let chipRect = layout.runs[runIndex].chipRect else {
-                    continue
-                }
-                if chipRect.contains(point) {
-                    return actionID
-                }
-            }
-        }
-        return nil
     }
 
     private func iconRect(for actionID: Int, context: DiffRevertInteractionContext) -> CGRect? {

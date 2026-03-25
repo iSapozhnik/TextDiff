@@ -272,6 +272,7 @@ func hoverLeaveSchedulesDismissNotImmediate() {
     let centers = view._testingActionCenters()
     #expect(centers.count == 1)
     guard let center = centers.first else {
+        Issue.record("Expected at least one action center")
         return
     }
 
