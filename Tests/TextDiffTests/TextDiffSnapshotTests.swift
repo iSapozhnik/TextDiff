@@ -66,17 +66,6 @@ final class TextDiffSnapshotTests: XCTestCase {
     }
 
     @MainActor
-    func testNarrowWidthWrapping() {
-        assertTextDiffSnapshot(
-            original: sampleOriginalSentence,
-            updated: sampleUpdatedSentence,
-            mode: .token,
-            size: CGSize(width: 220, height: 180),
-            testName: "narrow_width_wrapping()"
-        )
-    }
-
-    @MainActor
     func testCustomStyleSpacingStrikethrough() {
         var style = TextDiffStyle.default
         style.removalsStyle.strikethrough = true
