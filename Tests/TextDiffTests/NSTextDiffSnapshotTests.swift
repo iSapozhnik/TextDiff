@@ -5,7 +5,7 @@ import XCTest
 
 final class NSTextDiffSnapshotTests: XCTestCase {
     override func invokeTest() {
-        withSnapshotTesting(record: .missing) {
+        withSnapshotTesting(record: snapshotRecordMode()) {
             super.invokeTest()
         }
     }

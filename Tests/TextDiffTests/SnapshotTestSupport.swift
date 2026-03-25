@@ -6,6 +6,19 @@ import TextDiff
 private let snapshotPrecision: Float = 0.995
 private let snapshotPerceptualPrecision: Float = 0.98
 
+func snapshotRecordMode(
+    default defaultMode: SnapshotTestingConfiguration.Record = .missing
+) -> SnapshotTestingConfiguration.Record {
+    guard
+        let rawValue = ProcessInfo.processInfo.environment["SNAPSHOT_TESTING_RECORD"],
+        let recordMode = SnapshotTestingConfiguration.Record(rawValue: rawValue)
+    else {
+        return defaultMode
+    }
+
+    return recordMode
+}
+
 @MainActor
 func assertTextDiffSnapshot(
     original: String,
@@ -21,11 +34,12 @@ func assertTextDiffSnapshot(
     column: UInt = #column
 ) {
     configureSnapshotArtifactsDirectory(filePath: filePath)
+    let snapshotStyle = stableSnapshotStyle(from: style)
 
     let rootView = TextDiffView(
         original: original,
         updated: updated,
-        style: style,
+        style: snapshotStyle,
         mode: mode
     )
     .frame(width: size.width, height: size.height, alignment: .topLeading)
@@ -71,11 +85,12 @@ func assertNSTextDiffSnapshot(
     column: UInt = #column
 ) {
     configureSnapshotArtifactsDirectory(filePath: filePath)
+    let snapshotStyle = stableSnapshotStyle(from: style)
 
     let diffView = NSTextDiffView(
         original: original,
         updated: updated,
-        style: style,
+        style: snapshotStyle,
         mode: mode
     )
 
@@ -122,6 +137,41 @@ private func configureSnapshotArtifactsDirectory(filePath: StaticString) {
         .deletingLastPathComponent() // repo root
     let artifactsPath = repoRootURL.appendingPathComponent(".snapshot-artifacts", isDirectory: true).path
     setenv("SNAPSHOT_ARTIFACTS", artifactsPath, 1)
+}
+
+private func stableSnapshotStyle(from base: TextDiffStyle) -> TextDiffStyle {
+    var style = base
+
+    style.additionsStyle = stableSnapshotChangeStyle(
+        from: base.additionsStyle,
+        fillColor: NSColor(
+            srgbRed: 0.29,
+            green: 0.73,
+            blue: 0.37,
+            alpha: 1
+        )
+    )
+    style.removalsStyle = stableSnapshotChangeStyle(
+        from: base.removalsStyle,
+        fillColor: NSColor(
+            srgbRed: 0.96,
+            green: 0.42,
+            blue: 0.42,
+            alpha: 1
+        )
+    )
+
+    return style
+}
+
+private func stableSnapshotChangeStyle(
+    from base: TextDiffChangeStyle,
+    fillColor: NSColor
+) -> TextDiffChangeStyle {
+    var style = base
+    style.fillColor = fillColor
+    style.strokeColor = fillColor
+    return style
 }
 
 @MainActor
