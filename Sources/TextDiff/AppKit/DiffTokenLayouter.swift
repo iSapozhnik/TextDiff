@@ -1,4 +1,5 @@
 import AppKit
+import CoreText
 import Foundation
 
 struct LaidOutRun {
@@ -41,16 +42,13 @@ enum DiffTokenLayouter {
         var lineCount = 1
         var lineHasContent = false
         var lineBreakMarkers: [CGPoint] = []
-        let lineText = NSMutableString()
-        var lineTextWidth: CGFloat = 0
+        var widthCache: [WidthCacheKey: CGFloat] = [:]
         var previousChangedLexical = false
 
         func moveToNewLine() {
             lineTop += lineHeight
             cursorX = lineStartX
             lineHasContent = false
-            lineText.setString("")
-            lineTextWidth = 0
             previousChangedLexical = false
             lineCount += 1
         }
@@ -58,18 +56,13 @@ enum DiffTokenLayouter {
         for piece in pieces(from: segments) {
             if piece.isLineBreak {
                 lineBreakMarkers.append(
-                    CGPoint(
-                        x: cursorX,
-                        y: lineTop + (lineHeight / 2)
-                    )
+                    CGPoint(x: cursorX, y: lineTop + (lineHeight / 2))
                 )
                 moveToNewLine()
                 continue
             }
 
-            guard !piece.text.isEmpty else {
-                continue
-            }
+            guard !piece.text.isEmpty else { continue }
 
             let segment = DiffSegment(kind: piece.kind, tokenKind: piece.tokenKind, text: piece.text)
             let isChangedLexical = segment.kind != .equal
@@ -80,19 +73,18 @@ enum DiffTokenLayouter {
             }
 
             let attributedText = attributedToken(for: segment, style: style)
-            var textMeasurement = measuredIncrementalTextWidth(
+            let displayTextWidth = measuredTextWidth(
                 for: piece.text,
                 font: style.font,
-                lineText: lineText,
-                lineTextWidth: lineTextWidth
+                cache: &widthCache
             )
-            let standaloneTextWidth = measuredStandaloneTextWidth(for: piece.text, font: style.font)
-            var displayTextWidth = max(textMeasurement.textWidth, standaloneTextWidth)
-            var textSize = CGSize(width: displayTextWidth, height: textHeight)
+            let textSize = CGSize(width: displayTextWidth, height: textHeight)
             let chipInsets = effectiveChipInsets(for: style)
+
             var runWidth = isChangedLexical
                 ? displayTextWidth + chipInsets.left + chipInsets.right
-                : textMeasurement.textWidth
+                : displayTextWidth
+
             let requiredWidth = leadingGap + runWidth
 
             let wrapped = lineHasContent && cursorX + requiredWidth > maxLineX
@@ -100,22 +92,14 @@ enum DiffTokenLayouter {
                 moveToNewLine()
                 leadingGap = 0
 
-                // Soft-wrap boundary: do not carry inter-word whitespace to next line.
+                // Drop leading whitespace after wrap.
                 if piece.tokenKind == .whitespace {
                     continue
                 }
 
-                textMeasurement = measuredIncrementalTextWidth(
-                    for: piece.text,
-                    font: style.font,
-                    lineText: lineText,
-                    lineTextWidth: lineTextWidth
-                )
-                displayTextWidth = max(textMeasurement.textWidth, standaloneTextWidth)
-                textSize = CGSize(width: displayTextWidth, height: textHeight)
                 runWidth = isChangedLexical
                     ? displayTextWidth + chipInsets.left + chipInsets.right
-                    : textMeasurement.textWidth
+                    : displayTextWidth
             }
 
             cursorX += leadingGap
@@ -129,12 +113,7 @@ enum DiffTokenLayouter {
             if isChangedLexical {
                 let chipHeight = textSize.height + chipInsets.top + chipInsets.bottom
                 let chipY = lineTop + ((lineHeight - chipHeight) / 2)
-                chipRect = CGRect(
-                    x: cursorX,
-                    y: chipY,
-                    width: runWidth,
-                    height: chipHeight
-                )
+                chipRect = CGRect(x: cursorX, y: chipY, width: runWidth, height: chipHeight)
                 chipFillColor = chipFillColorForOperation(segment.kind, style: style)
                 chipStrokeColor = chipStrokeColorForOperation(segment.kind, style: style)
             }
@@ -156,7 +135,6 @@ enum DiffTokenLayouter {
             cursorX += runWidth
             maxUsedX = max(maxUsedX, cursorX)
             lineHasContent = true
-            lineTextWidth = textMeasurement.combinedLineWidth
             previousChangedLexical = isChangedLexical
         }
 
@@ -173,6 +151,32 @@ enum DiffTokenLayouter {
         )
     }
 
+    private static func measuredTextWidth(
+        for text: String,
+        font: NSFont,
+        cache: inout [WidthCacheKey: CGFloat]
+    ) -> CGFloat {
+        guard !text.isEmpty else { return 0 }
+
+        let key = WidthCacheKey(
+            text: text,
+            fontName: font.fontName,
+            fontSize: font.pointSize
+        )
+        if let cached = cache[key] {
+            return cached
+        }
+
+        let attributed = NSAttributedString(
+            string: text,
+            attributes: [.font: font]
+        )
+        let line = CTLineCreateWithAttributedString(attributed)
+        let width = CGFloat(CTLineGetTypographicBounds(line, nil, nil, nil))
+        cache[key] = width
+        return width
+    }
+
     private static func attributedToken(for segment: DiffSegment, style: TextDiffStyle) -> NSAttributedString {
         var attributes: [NSAttributedString.Key: Any] = [
             .font: style.font,
@@ -184,37 +188,6 @@ enum DiffTokenLayouter {
         }
 
         return NSAttributedString(string: segment.text, attributes: attributes)
-    }
-
-    private static func measuredIncrementalTextWidth(
-        for text: String,
-        font: NSFont,
-        lineText: NSMutableString,
-        lineTextWidth: CGFloat
-    ) -> IncrementalTextWidth {
-        guard !text.isEmpty else {
-            return IncrementalTextWidth(
-                textWidth: 0,
-                combinedLineWidth: lineTextWidth
-            )
-        }
-
-        lineText.append(text)
-        // TODO: Fix this later
-        // This now appends each token to lineText and calls size(withAttributes:) on the entire accumulated line every iteration, which makes layout cost grow quadratically with line length. On long unwrapped diffs (hundreds/thousands of tokens), this is a significant regression from the prior per-token measurement approach and can noticeably slow rendering even though the new performance tests only capture baselines and do not enforce thresholds.
-        let combinedWidth = lineText.size(withAttributes: [.font: font]).width
-        let textWidth = max(0, combinedWidth - lineTextWidth)
-        return IncrementalTextWidth(
-            textWidth: textWidth,
-            combinedLineWidth: combinedWidth
-        )
-    }
-
-    private static func measuredStandaloneTextWidth(for text: String, font: NSFont) -> CGFloat {
-        guard !text.isEmpty else {
-            return 0
-        }
-        return (text as NSString).size(withAttributes: [.font: font]).width
     }
 
     private static func effectiveChipInsets(for style: TextDiffStyle) -> NSEdgeInsets {
@@ -333,7 +306,8 @@ private struct LayoutPiece {
     let isLineBreak: Bool
 }
 
-private struct IncrementalTextWidth {
-    let textWidth: CGFloat
-    let combinedLineWidth: CGFloat
+private struct WidthCacheKey: Hashable {
+    let text: String
+    let fontName: String
+    let fontSize: CGFloat
 }
