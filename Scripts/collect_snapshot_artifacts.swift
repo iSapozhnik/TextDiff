@@ -86,8 +86,10 @@ for case let fileURL as URL in artifactFiles {
     let referenceCopyURL = baseURL.appendingPathExtension("reference").appendingPathExtension(pngExtension)
     let diffURL = baseURL.appendingPathExtension("diff").appendingPathExtension(pngExtension)
 
-    if !fileManager.fileExists(atPath: failedCopyURL.path) {
-        try fileManager.copyItem(at: fileURL, to: failedCopyURL)
+    if fileManager.fileExists(atPath: failedCopyURL.path) {
+        try fileManager.removeItem(at: fileURL)
+    } else {
+        try fileManager.moveItem(at: fileURL, to: failedCopyURL)
     }
 
     if !fileManager.fileExists(atPath: referenceCopyURL.path) {
@@ -95,7 +97,7 @@ for case let fileURL as URL in artifactFiles {
     }
 
     if !fileManager.fileExists(atPath: diffURL.path),
-       let diff = diffImage(referenceURL: referenceURL, failedURL: fileURL) {
+       let diff = diffImage(referenceURL: referenceURL, failedURL: failedCopyURL) {
         try writePNG(ciImage: diff, to: diffURL)
     }
 
