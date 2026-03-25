@@ -636,11 +636,21 @@ public final class NSTextDiffView: NSView {
             return
         }
 
-        let fillPath = NSBezierPath(roundedRect: chipRect, xRadius: cornerRadius, yRadius: cornerRadius)
+        let alignedChipRect = backingAlignedRect(
+            chipRect,
+            options: [
+                .alignMinXOutward,
+                .alignMinYOutward,
+                .alignMaxXOutward,
+                .alignMaxYOutward
+            ]
+        )
+
+        let fillPath = NSBezierPath(roundedRect: alignedChipRect, xRadius: cornerRadius, yRadius: cornerRadius)
         fillColor?.setFill()
         fillPath.fill()
 
-        let strokeRect = chipRect.insetBy(dx: 0.5, dy: 0.5)
+        let strokeRect = alignedChipRect.insetBy(dx: 0.5, dy: 0.5)
         guard strokeRect.width > 0, strokeRect.height > 0 else {
             return
         }
