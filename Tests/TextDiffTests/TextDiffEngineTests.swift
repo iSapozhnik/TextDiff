@@ -456,7 +456,7 @@ private func expectColorEqual(_ lhs: NSColor, _ rhs: NSColor, tolerance: CGFloat
 }
 
 private func rgba(_ color: NSColor) -> (CGFloat, CGFloat, CGFloat, CGFloat) {
-    let rgb = color.usingColorSpace(.sRGB) ?? color
+    let rgb = color.usingColorSpace(.deviceRGB) ?? color
     return (rgb.redComponent, rgb.greenComponent, rgb.blueComponent, rgb.alphaComponent)
 }
 

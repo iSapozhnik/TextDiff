@@ -239,7 +239,7 @@ enum DiffTokenLayouter {
     }
 
     private static func adaptiveChipTextColor(for fillColor: NSColor) -> NSColor {
-        let rgb = fillColor.usingColorSpace(.sRGB) ?? fillColor
+        let rgb = fillColor.usingColorSpace(.deviceRGB) ?? fillColor
         let luminance = (0.2126 * rgb.redComponent) + (0.7152 * rgb.greenComponent) + (0.0722 * rgb.blueComponent)
         if luminance > 0.55 {
             return NSColor.black.withAlphaComponent(0.9)
