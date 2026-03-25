@@ -70,6 +70,49 @@ func assertTextDiffSnapshot(
 }
 
 @MainActor
+func assertTextDiffSnapshot(
+    result: TextDiffResult,
+    style: TextDiffStyle = .default,
+    size: CGSize,
+    named name: String? = nil,
+    fileID: StaticString = #fileID,
+    filePath: StaticString = #filePath,
+    testName: String = #function,
+    line: UInt = #line,
+    column: UInt = #column
+) {
+    configureSnapshotArtifactsDirectory(filePath: filePath)
+    let snapshotStyle = stableSnapshotStyle(from: style)
+
+    let rootView = TextDiffView(result: result, style: snapshotStyle)
+        .frame(width: size.width, height: size.height, alignment: .topLeading)
+        .background(Color.white)
+
+    let hostingView = NSHostingView(rootView: rootView)
+    hostingView.frame = CGRect(origin: .zero, size: size)
+    hostingView.appearance = NSAppearance(named: .aqua)
+    hostingView.layoutSubtreeIfNeeded()
+
+    let snapshotImage = renderSnapshotImage1x(view: hostingView, size: size)
+
+    withSnapshotTesting(diffTool: .ksdiff) {
+        assertSnapshot(
+            of: snapshotImage,
+            as: .image(
+                precision: snapshotPrecision,
+                perceptualPrecision: snapshotPerceptualPrecision
+            ),
+            named: name,
+            fileID: fileID,
+            file: filePath,
+            testName: testName,
+            line: line,
+            column: column
+        )
+    }
+}
+
+@MainActor
 func assertNSTextDiffSnapshot(
     original: String,
     updated: String,

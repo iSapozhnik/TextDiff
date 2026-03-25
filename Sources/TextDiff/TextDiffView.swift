@@ -3,6 +3,7 @@ import SwiftUI
 
 /// A SwiftUI view that renders a merged visual diff between two strings.
 public struct TextDiffView: View {
+    private let result: TextDiffResult?
     private let original: String
     private let updatedValue: String
     private let updatedBinding: Binding<String>?
@@ -27,6 +28,7 @@ public struct TextDiffView: View {
         mode: TextDiffComparisonMode = .token,
         showsInvisibleCharacters: Bool = false
     ) {
+        self.result = nil
         self.original = original
         self.updatedValue = updated
         self.updatedBinding = nil
@@ -56,6 +58,7 @@ public struct TextDiffView: View {
         isRevertActionsEnabled: Bool = true,
         onRevertAction: ((TextDiffRevertAction) -> Void)? = nil
     ) {
+        self.result = nil
         self.original = original
         self.updatedValue = updated.wrappedValue
         self.updatedBinding = updated
@@ -66,10 +69,33 @@ public struct TextDiffView: View {
         self.onRevertAction = onRevertAction
     }
 
+    /// Creates a display-only diff view backed by a precomputed result.
+    ///
+    /// - Parameters:
+    ///   - result: A precomputed diff result to render.
+    ///   - style: Visual style used to render additions, deletions, and unchanged text.
+    ///   - showsInvisibleCharacters: Debug-only overlay that draws whitespace/newline symbols in red.
+    public init(
+        result: TextDiffResult,
+        style: TextDiffStyle = .default,
+        showsInvisibleCharacters: Bool = false
+    ) {
+        self.result = result
+        self.original = result.original
+        self.updatedValue = result.updated
+        self.updatedBinding = nil
+        self.mode = result.mode
+        self.style = style
+        self.showsInvisibleCharacters = showsInvisibleCharacters
+        self.isRevertActionsEnabled = false
+        self.onRevertAction = nil
+    }
+
     /// The view body that renders the current diff content.
     public var body: some View {
         let updated = updatedBinding?.wrappedValue ?? updatedValue
         DiffTextViewRepresentable(
+            result: result,
             original: original,
             updated: updated,
             updatedBinding: updatedBinding,
@@ -174,6 +200,18 @@ public struct TextDiffView: View {
     )
     .padding()
     .frame(width: 320)
+}
+
+#Preview("Precomputed Result") {
+    TextDiffView(
+        result: TextDiffEngine.result(
+            original: "Track deleted text in storage.",
+            updated: "Track inserted text in storage.",
+            mode: .token
+        )
+    )
+    .padding()
+    .frame(width: 360)
 }
 
 #Preview("Revert Binding") {

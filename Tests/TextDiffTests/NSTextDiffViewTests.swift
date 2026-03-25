@@ -164,6 +164,62 @@ func nsTextDiffViewSetContentStyleOnlyDoesNotRecomputeDiff() {
 
 @Test
 @MainActor
+func nsTextDiffViewResultContentSynchronizesPublicPropertiesWithoutRecompute() {
+    var callCount = 0
+    let view = NSTextDiffView(
+        original: "seed-old",
+        updated: "seed-new",
+        mode: .token
+    ) { _, _, _ in
+        callCount += 1
+        return [DiffSegment(kind: .equal, tokenKind: .word, text: "\(callCount)")]
+    }
+
+    let result = TextDiffEngine.result(original: "old value", updated: "new value", mode: .character)
+    view.setContent(result: result, style: .default)
+
+    #expect(callCount == 1)
+    #expect(view.original == result.original)
+    #expect(view.updated == result.updated)
+    #expect(view.mode == result.mode)
+}
+
+@Test
+@MainActor
+func nsTextDiffViewResultDrivenModeDisablesRevertActions() {
+    let result = TextDiffEngine.result(original: "old", updated: "new", mode: .token)
+    let view = NSTextDiffView(result: result)
+    view.frame = CGRect(x: 0, y: 0, width: 240, height: 80)
+    view.isRevertActionsEnabled = true
+
+    #expect(view._testingSetHoveredFirstRevertAction() == false)
+    #expect(view._testingTriggerHoveredRevertAction() == false)
+}
+
+@Test
+@MainActor
+func nsTextDiffViewPropertyMutationSwitchesBackToTextDrivenMode() {
+    var callCount = 0
+    let view = NSTextDiffView(
+        original: "seed-old",
+        updated: "seed-new",
+        mode: .token
+    ) { _, _, _ in
+        callCount += 1
+        return [DiffSegment(kind: .equal, tokenKind: .word, text: "\(callCount)")]
+    }
+
+    let result = TextDiffEngine.result(original: "old value", updated: "new value", mode: .token)
+    view.setContent(result: result, style: .default)
+    #expect(callCount == 1)
+
+    view.updated = "newer value"
+
+    #expect(callCount == 2)
+}
+
+@Test
+@MainActor
 func nsTextDiffViewRevertDisabledDoesNotEmitAction() {
     let view = NSTextDiffView(
         original: "old",
