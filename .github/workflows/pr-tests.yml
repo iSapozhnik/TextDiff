@@ -53,6 +53,10 @@ jobs:
           mkdir -p "$SNAPSHOT_ARTIFACTS"
           swift test --filter TextDiffSnapshotTests 2>&1 | tee "$SNAPSHOT_ARTIFACTS/swift-test.log" | xcsift --warnings
 
+      - name: Collect snapshot artifact bundle
+        if: always()
+        run: swift Scripts/collect_snapshot_artifacts.swift
+
       - name: Upload snapshot artifacts
         if: always()
         uses: actions/upload-artifact@v4
