@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 
 struct DiffTextViewRepresentable: NSViewRepresentable {
+    let result: TextDiffResult?
     let original: String
     let updated: String
     let updatedBinding: Binding<String>?
@@ -16,12 +17,17 @@ struct DiffTextViewRepresentable: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> NSTextDiffView {
-        let view = NSTextDiffView(
-            original: original,
-            updated: updated,
-            style: style,
-            mode: mode
-        )
+        let view: NSTextDiffView
+        if let result {
+            view = NSTextDiffView(result: result, style: style)
+        } else {
+            view = NSTextDiffView(
+                original: original,
+                updated: updated,
+                style: style,
+                mode: mode
+            )
+        }
         view.setContentCompressionResistancePriority(.required, for: .vertical)
         view.setContentHuggingPriority(.required, for: .vertical)
         context.coordinator.update(
@@ -29,7 +35,7 @@ struct DiffTextViewRepresentable: NSViewRepresentable {
             onRevertAction: onRevertAction
         )
         view.showsInvisibleCharacters = showsInvisibleCharacters
-        view.isRevertActionsEnabled = isRevertActionsEnabled
+        view.isRevertActionsEnabled = result == nil ? isRevertActionsEnabled : false
         view.onRevertAction = { [coordinator = context.coordinator] action in
             coordinator.handle(action)
         }
@@ -45,13 +51,17 @@ struct DiffTextViewRepresentable: NSViewRepresentable {
             coordinator.handle(action)
         }
         view.showsInvisibleCharacters = showsInvisibleCharacters
-        view.isRevertActionsEnabled = isRevertActionsEnabled
-        view.setContent(
-            original: original,
-            updated: updated,
-            style: style,
-            mode: mode
-        )
+        view.isRevertActionsEnabled = result == nil ? isRevertActionsEnabled : false
+        if let result {
+            view.setContent(result: result, style: style)
+        } else {
+            view.setContent(
+                original: original,
+                updated: updated,
+                style: style,
+                mode: mode
+            )
+        }
     }
 
     final class Coordinator {

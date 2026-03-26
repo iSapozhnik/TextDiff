@@ -80,6 +80,66 @@ TextDiffView(
 - `.token` (default): token-level diff behavior.
 - `.character`: refines adjacent word replacements by character so shared parts remain unchanged text (for example `Add` -> `Added` shows unchanged `Add` and inserted `ed`).
 
+## Engine-Only Results
+
+You can compute a reusable diff result without rendering a view:
+
+```swift
+import TextDiff
+
+let result = TextDiffEngine.result(
+    original: "Track old values in storage.",
+    updated: "Track new values in storage.",
+    mode: .token
+)
+
+for change in result.changes {
+    print(change.kind, change.text)
+}
+
+print(result.summary.insertedCharacters)
+print(result.summary.deletedCharacters)
+```
+
+`TextDiffResult.changes` preserves the computed diff order for the selected mode and uses UTF-16 offsets/lengths so it can be stored and replayed consistently later. Summaries are derived from those mode-specific change records.
+
+## Precomputed Rendering
+
+If you already computed a diff result for storage or analytics, you can render it later without recomputing:
+
+```swift
+import SwiftUI
+import TextDiff
+
+let result = TextDiffEngine.result(
+    original: "Track old values in storage.",
+    updated: "Track new values in storage.",
+    mode: .token
+)
+
+struct StoredDiffView: View {
+    var body: some View {
+        TextDiffView(result: result)
+            .padding()
+    }
+}
+```
+
+AppKit has the same precomputed rendering path:
+
+```swift
+import AppKit
+import TextDiff
+
+let result = TextDiffEngine.result(
+    original: "Track old values in storage.",
+    updated: "Track new values in storage.",
+    mode: .token
+)
+
+let diffView = NSTextDiffView(result: result)
+```
+
 ## Custom Styling
 
 ```swift
@@ -123,8 +183,10 @@ Change-specific colors and text treatment live under `additionsStyle` and `remov
 - Matching is exact (case-sensitive and punctuation-sensitive).
 - Replacements are rendered as adjacent delete then insert segments.
 - Character mode refines adjacent word replacements only; punctuation and whitespace keep token-level behavior.
+- `TextDiffResult.changes` and `TextDiffResult.summary` are mode-specific outputs; `.token` and `.character` results are not normalized to each other.
 - Whitespace changes preserve the `updated` layout and stay visually neutral (no chips).
 - Rendering is display-only (not selectable) to keep chip geometry deterministic.
+- Result-driven rendering (`TextDiffView(result:)`, `NSTextDiffView(result:)`) is display-only and does not enable revert actions.
 - `interChipSpacing` controls spacing between adjacent changed lexical chips (words or punctuation).
 - `lineSpacing` controls vertical spacing between wrapped lines.
 - Chip horizontal padding is preserved with a minimum effective floor of 3pt per side.

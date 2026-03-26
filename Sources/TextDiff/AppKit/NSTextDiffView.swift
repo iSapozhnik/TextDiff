@@ -12,6 +12,7 @@ public final class NSTextDiffView: NSView {
             guard !isBatchUpdating else {
                 return
             }
+            contentSource = .text
             _ = updateSegmentsIfNeeded()
         }
     }
@@ -23,6 +24,7 @@ public final class NSTextDiffView: NSView {
             guard !isBatchUpdating else {
                 return
             }
+            contentSource = .text
             _ = updateSegmentsIfNeeded()
         }
     }
@@ -46,6 +48,7 @@ public final class NSTextDiffView: NSView {
             guard !isBatchUpdating else {
                 return
             }
+            contentSource = .text
             _ = updateSegmentsIfNeeded()
         }
     }
@@ -54,6 +57,9 @@ public final class NSTextDiffView: NSView {
     public var isRevertActionsEnabled: Bool = false {
         didSet {
             guard oldValue != isRevertActionsEnabled else {
+                return
+            }
+            guard !contentSource.isResultDriven else {
                 return
             }
             invalidateCachedLayout()
@@ -75,6 +81,7 @@ public final class NSTextDiffView: NSView {
 
     private var segments: [DiffSegment]
     private let diffProvider: DiffProvider
+    private var contentSource: NSTextDiffContentSource
 
     private var lastOriginal: String
     private var lastUpdated: String
@@ -139,10 +146,33 @@ public final class NSTextDiffView: NSView {
         self.diffProvider = { original, updated, mode in
             TextDiffEngine.diff(original: original, updated: updated, mode: mode)
         }
+        self.contentSource = .text
         self.lastOriginal = original
         self.lastUpdated = updated
         self.lastModeKey = Self.modeKey(for: mode)
         self.segments = self.diffProvider(original, updated, mode)
+        super.init(frame: .zero)
+    }
+
+    /// Creates a text diff view backed by a precomputed result.
+    ///
+    /// Result-driven rendering is display-only. Revert actions are unavailable in this mode.
+    public init(
+        result: TextDiffResult,
+        style: TextDiffStyle = .default
+    ) {
+        self.original = result.original
+        self.updated = result.updated
+        self.style = style
+        self.mode = result.mode
+        self.diffProvider = { original, updated, mode in
+            TextDiffEngine.diff(original: original, updated: updated, mode: mode)
+        }
+        self.contentSource = .result(result)
+        self.lastOriginal = result.original
+        self.lastUpdated = result.updated
+        self.lastModeKey = Self.modeKey(for: result.mode)
+        self.segments = result.segments
         super.init(frame: .zero)
     }
 
@@ -159,6 +189,7 @@ public final class NSTextDiffView: NSView {
         self.style = style
         self.mode = mode
         self.diffProvider = diffProvider
+        self.contentSource = .text
         self.lastOriginal = original
         self.lastUpdated = updated
         self.lastModeKey = Self.modeKey(for: mode)
@@ -254,6 +285,7 @@ public final class NSTextDiffView: NSView {
             let needsStyleInvalidation = pendingStyleInvalidation
             pendingStyleInvalidation = false
 
+            contentSource = .text
             let didRecompute = updateSegmentsIfNeeded()
             if needsStyleInvalidation, !didRecompute {
                 invalidateCachedLayout()
@@ -264,6 +296,23 @@ public final class NSTextDiffView: NSView {
         self.mode = mode
         self.original = original
         self.updated = updated
+    }
+
+    /// Atomically updates the view with a precomputed diff result.
+    ///
+    /// Result-driven rendering is display-only. Revert actions remain unavailable in this mode.
+    public func setContent(
+        result: TextDiffResult,
+        style: TextDiffStyle
+    ) {
+        isBatchUpdating = true
+        defer {
+            isBatchUpdating = false
+            pendingStyleInvalidation = false
+        }
+
+        self.style = style
+        apply(result: result)
     }
 
     @discardableResult
@@ -277,9 +326,23 @@ public final class NSTextDiffView: NSView {
         lastUpdated = updated
         lastModeKey = newModeKey
         segments = diffProvider(original, updated, mode)
+        contentSource = .text
         segmentGeneration += 1
         invalidateCachedLayout()
         return true
+    }
+
+    private func apply(result: TextDiffResult) {
+        contentSource = .result(result)
+        original = result.original
+        updated = result.updated
+        mode = result.mode
+        lastOriginal = result.original
+        lastUpdated = result.updated
+        lastModeKey = Self.modeKey(for: result.mode)
+        segments = result.segments
+        segmentGeneration += 1
+        invalidateCachedLayout()
     }
 
     private func layoutForCurrentWidth() -> DiffLayout {
@@ -305,7 +368,7 @@ public final class NSTextDiffView: NSView {
     }
 
     private func interactionContext(for layout: DiffLayout) -> DiffRevertInteractionContext? {
-        guard isRevertActionsEnabled, mode == .token else {
+        guard isRevertActionsEnabled, mode == .token, !contentSource.isResultDriven else {
             return nil
         }
 

@@ -183,6 +183,138 @@ func characterModeIsDeterministicForRepeatedCharacterTieCases() {
 }
 
 @Test
+func resultSegmentsMatchDiffOutputInTokenMode() {
+    let result = TextDiffEngine.result(original: "old value", updated: "new value", mode: .token)
+    let segments = TextDiffEngine.diff(original: "old value", updated: "new value", mode: .token)
+
+    #expect(result.segments == segments)
+}
+
+@Test
+func resultSegmentsMatchDiffOutputInCharacterMode() {
+    let result = TextDiffEngine.result(original: "Add", updated: "Added", mode: .character)
+    let segments = TextDiffEngine.diff(original: "Add", updated: "Added", mode: .character)
+
+    #expect(result.segments == segments)
+}
+
+@Test
+func resultProducesOrderedChangeRecordsForReplacement() {
+    let result = TextDiffEngine.result(original: "old value", updated: "new value", mode: .token)
+
+    #expect(result.changes == [
+        TextDiffChange(
+            kind: .delete,
+            tokenKind: .word,
+            text: "old",
+            originalOffset: 0,
+            originalLength: 3,
+            updatedOffset: 0,
+            updatedLength: 0
+        ),
+        TextDiffChange(
+            kind: .insert,
+            tokenKind: .word,
+            text: "new",
+            originalOffset: 3,
+            originalLength: 0,
+            updatedOffset: 0,
+            updatedLength: 3
+        )
+    ])
+}
+
+@Test
+func resultSummaryCountsChangeRecordsAndCharacters() {
+    let result = TextDiffEngine.result(original: "old value", updated: "new value", mode: .token)
+
+    #expect(result.summary == TextDiffSummary(
+        changeRecordInsertions: 1,
+        changeRecordDeletions: 1,
+        insertedCharacters: 3,
+        deletedCharacters: 3
+    ))
+}
+
+@Test
+func resultSummaryIsModeSpecific() {
+    let token = TextDiffEngine.result(original: "Add", updated: "Added", mode: .token)
+    let character = TextDiffEngine.result(original: "Add", updated: "Added", mode: .character)
+
+    #expect(token.summary == TextDiffSummary(
+        changeRecordInsertions: 1,
+        changeRecordDeletions: 1,
+        insertedCharacters: 5,
+        deletedCharacters: 3
+    ))
+    #expect(character.summary == TextDiffSummary(
+        changeRecordInsertions: 1,
+        changeRecordDeletions: 0,
+        insertedCharacters: 2,
+        deletedCharacters: 0
+    ))
+}
+
+@Test
+func fullInsertionProducesAnchoredInsertRecord() {
+    let result = TextDiffEngine.result(original: "", updated: "Hello", mode: .token)
+
+    #expect(result.changes == [
+        TextDiffChange(
+            kind: .insert,
+            tokenKind: .word,
+            text: "Hello",
+            originalOffset: 0,
+            originalLength: 0,
+            updatedOffset: 0,
+            updatedLength: 5
+        )
+    ])
+}
+
+@Test
+func fullDeletionProducesAnchoredDeleteRecord() {
+    let result = TextDiffEngine.result(original: "Hello", updated: "", mode: .token)
+
+    #expect(result.changes == [
+        TextDiffChange(
+            kind: .delete,
+            tokenKind: .word,
+            text: "Hello",
+            originalOffset: 0,
+            originalLength: 5,
+            updatedOffset: 0,
+            updatedLength: 0
+        )
+    ])
+}
+
+@Test
+func whitespaceOnlyLayoutChangesProduceNoChangeRecords() {
+    let result = TextDiffEngine.result(original: "Hello   world", updated: "Hello world\n", mode: .token)
+
+    #expect(result.changes.isEmpty)
+    #expect(result.summary == TextDiffSummary(
+        changeRecordInsertions: 0,
+        changeRecordDeletions: 0,
+        insertedCharacters: 0,
+        deletedCharacters: 0
+    ))
+}
+
+@Test
+func insertOffsetsUseUtf16AnchorsForEmoji() throws {
+    let result = TextDiffEngine.result(original: "a", updated: "a🌍", mode: .token)
+    let change = try #require(result.changes.first)
+
+    #expect(change.kind == .insert)
+    #expect(change.originalOffset == 1)
+    #expect(change.originalLength == 0)
+    #expect(change.updatedOffset == 1)
+    #expect(change.updatedLength == 2)
+}
+
+@Test
 func defaultStyleInterChipSpacingMatchesCurrentDefault() {
     #expect(TextDiffStyle.default.interChipSpacing == 0)
 }

@@ -15,6 +15,41 @@ public enum TextDiffEngine {
         updated: String,
         mode: TextDiffComparisonMode = .token
     ) -> [DiffSegment] {
+        computeSegments(original: original, updated: updated, mode: mode)
+    }
+
+    /// Computes a reusable diff result with render-ready segments and change records.
+    ///
+    /// - Parameters:
+    ///   - original: The source text before edits.
+    ///   - updated: The source text after edits.
+    ///   - mode: The comparison mode used to produce diff output.
+    /// - Returns: A reusable result that contains render-ready segments, ordered change records,
+    ///   and lightweight summary statistics.
+    public static func result(
+        original: String,
+        updated: String,
+        mode: TextDiffComparisonMode = .token
+    ) -> TextDiffResult {
+        let segments = computeSegments(original: original, updated: updated, mode: mode)
+        let changes = makeChanges(original: original, updated: updated, segments: segments)
+        let summary = makeSummary(changes: changes)
+
+        return TextDiffResult(
+            original: original,
+            updated: updated,
+            mode: mode,
+            segments: segments,
+            changes: changes,
+            summary: summary
+        )
+    }
+
+    private static func computeSegments(
+        original: String,
+        updated: String,
+        mode: TextDiffComparisonMode
+    ) -> [DiffSegment] {
         let segments = tokenDiffSegments(original: original, updated: updated)
         switch mode {
         case .token:
@@ -22,6 +57,67 @@ public enum TextDiffEngine {
         case .character:
             return refineWordReplacementsByCharacter(segments: segments)
         }
+    }
+
+    private static func makeChanges(
+        original: String,
+        updated: String,
+        segments: [DiffSegment]
+    ) -> [TextDiffChange] {
+        let indexed = DiffSegmentIndexer.indexedSegments(from: segments, original: original, updated: updated)
+
+        return indexed.compactMap { indexedSegment in
+            let segment = indexedSegment.segment
+            switch segment.kind {
+            case .equal:
+                return nil
+            case .insert:
+                return TextDiffChange(
+                    kind: .insert,
+                    tokenKind: segment.tokenKind,
+                    text: segment.text,
+                    originalOffset: indexedSegment.originalRange.location,
+                    originalLength: 0,
+                    updatedOffset: indexedSegment.updatedRange.location,
+                    updatedLength: indexedSegment.updatedRange.length
+                )
+            case .delete:
+                return TextDiffChange(
+                    kind: .delete,
+                    tokenKind: segment.tokenKind,
+                    text: segment.text,
+                    originalOffset: indexedSegment.originalRange.location,
+                    originalLength: indexedSegment.originalRange.length,
+                    updatedOffset: indexedSegment.updatedRange.location,
+                    updatedLength: 0
+                )
+            }
+        }
+    }
+
+    private static func makeSummary(changes: [TextDiffChange]) -> TextDiffSummary {
+        var insertionCount = 0
+        var deletionCount = 0
+        var insertedCharacters = 0
+        var deletedCharacters = 0
+
+        for change in changes {
+            switch change.kind {
+            case .insert:
+                insertionCount += 1
+                insertedCharacters += change.text.count
+            case .delete:
+                deletionCount += 1
+                deletedCharacters += change.text.count
+            }
+        }
+
+        return TextDiffSummary(
+            changeRecordInsertions: insertionCount,
+            changeRecordDeletions: deletionCount,
+            insertedCharacters: insertedCharacters,
+            deletedCharacters: deletedCharacters
+        )
     }
 
     private static func tokenDiffSegments(original: String, updated: String) -> [DiffSegment] {

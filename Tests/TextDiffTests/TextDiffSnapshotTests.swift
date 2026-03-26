@@ -81,6 +81,19 @@ final class TextDiffSnapshotTests: XCTestCase {
         )
     }
 
+    @MainActor
+    func testPrecomputedResultRendering() {
+        assertTextDiffSnapshot(
+            result: TextDiffEngine.result(
+                original: "Apply old value in this sentence.",
+                updated: "Apply new value in this sentence.",
+                mode: .token
+            ),
+            size: CGSize(width: 500, height: 120),
+            testName: "precomputed_result_rendering()"
+        )
+    }
+
     private let sampleOriginalSentence = "A quick brown fox jumps over a lazy dog."
     private let sampleUpdatedSentence = "A quick fox hops over the lazy dog!"
 }

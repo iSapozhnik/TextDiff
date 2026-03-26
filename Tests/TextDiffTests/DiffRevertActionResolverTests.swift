@@ -33,7 +33,7 @@ func indexedSegmentsAdvancePastEqualSegmentsEvenWhenTextValidationFails() {
         DiffSegment(kind: .insert, tokenKind: .word, text: "Y")
     ]
 
-    let indexed = DiffRevertActionResolver.indexedSegments(
+    let indexed = DiffSegmentIndexer.indexedSegments(
         from: segments,
         original: "zzzX",
         updated: "zzzY"
