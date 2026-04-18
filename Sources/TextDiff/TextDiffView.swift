@@ -398,4 +398,32 @@ private struct TextDiffIOSRepresentable: UIViewRepresentable {
         }
     }
 }
+
+#Preview("iOS Representable Default") {
+    TextDiffIOSRepresentable(
+        result: nil,
+        original: "Apply old value in this sentence.",
+        updated: "Apply new value in this sentence.",
+        style: .default,
+        mode: .token
+    )
+    .padding()
+    .frame(width: 420)
+}
+
+#Preview("iOS Representable Precomputed Result") {
+    TextDiffIOSRepresentable(
+        result: TextDiffEngine.result(
+            original: "Track old values in storage.",
+            updated: "Track new values in storage.",
+            mode: .token
+        ),
+        original: "",
+        updated: "",
+        style: .default,
+        mode: .token
+    )
+    .padding()
+    .frame(width: 420)
+}
 #endif
