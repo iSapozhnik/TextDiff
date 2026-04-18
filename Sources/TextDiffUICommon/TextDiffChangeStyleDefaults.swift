@@ -9,7 +9,7 @@ public extension TextDiffChangeStyle {
     static let defaultRemoval = TextDiffChangeStyle(
         fillColor: defaultRemovalFillColorValue,
         strokeColor: defaultRemovalStrokeColorValue,
-        textColorOverride: nil,
+        textColorOverride: defaultRemovalTextColorValue,
         strikethrough: false
     )
 }
@@ -19,9 +19,11 @@ private var defaultAdditionFillColorValue: PlatformColor { PlatformColor.systemG
 private var defaultAdditionStrokeColorValue: PlatformColor { PlatformColor.systemGreen.withAlphaComponent(0.65) }
 private var defaultRemovalFillColorValue: PlatformColor { PlatformColor.systemRed.withAlphaComponent(0.22) }
 private var defaultRemovalStrokeColorValue: PlatformColor { PlatformColor.systemRed.withAlphaComponent(0.65) }
+private var defaultRemovalTextColorValue: PlatformColor { PlatformColor.labelColor }
 #elseif canImport(UIKit)
 private var defaultAdditionFillColorValue: PlatformColor { PlatformColor.systemGreen.withAlphaComponent(0.22) }
 private var defaultAdditionStrokeColorValue: PlatformColor { PlatformColor.systemGreen.withAlphaComponent(0.65) }
 private var defaultRemovalFillColorValue: PlatformColor { PlatformColor.systemRed.withAlphaComponent(0.22) }
 private var defaultRemovalStrokeColorValue: PlatformColor { PlatformColor.systemRed.withAlphaComponent(0.65) }
+private var defaultRemovalTextColorValue: PlatformColor { PlatformColor.label }
 #endif
