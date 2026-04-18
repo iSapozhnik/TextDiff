@@ -1,1 +1,2 @@
-// TextDiff public API is split across dedicated files.
+@_exported import TextDiffCore
+@_exported import TextDiffMacOSUI

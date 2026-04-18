@@ -1,7 +1,8 @@
 import AppKit
 import SnapshotTesting
 import XCTest
-@testable import TextDiff
+import TextDiffCore
+@testable import TextDiffMacOSUI
 
 final class NSTextDiffSnapshotTests: XCTestCase {
     override func invokeTest() {

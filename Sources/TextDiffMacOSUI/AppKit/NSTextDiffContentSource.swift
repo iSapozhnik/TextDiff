@@ -1,4 +1,5 @@
 import Foundation
+import TextDiffCore
 
 enum NSTextDiffContentSource {
     case text

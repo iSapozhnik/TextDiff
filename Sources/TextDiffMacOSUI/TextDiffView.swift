@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import TextDiffCore
 
 /// A SwiftUI view that renders a merged visual diff between two strings.
 public struct TextDiffView: View {

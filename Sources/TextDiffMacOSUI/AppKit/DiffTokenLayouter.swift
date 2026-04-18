@@ -1,6 +1,7 @@
 import AppKit
 import CoreText
 import Foundation
+import TextDiffCore
 
 struct LaidOutRun {
     let segmentIndex: Int

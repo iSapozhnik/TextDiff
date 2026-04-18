@@ -1,14 +1,14 @@
 import Foundation
 
-struct IndexedDiffSegment {
-    let segmentIndex: Int
-    let segment: DiffSegment
-    let originalRange: NSRange
-    let updatedRange: NSRange
+package struct IndexedDiffSegment {
+    package let segmentIndex: Int
+    package let segment: DiffSegment
+    package let originalRange: NSRange
+    package let updatedRange: NSRange
 }
 
-enum DiffSegmentIndexer {
-    static func indexedSegments(
+package enum DiffSegmentIndexer {
+    package static func indexedSegments(
         from segments: [DiffSegment],
         original: String,
         updated: String

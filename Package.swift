@@ -9,10 +9,18 @@ let package = Package(
         .macOS(.v14)
     ],
     products: [
-        // Products define the executables and libraries a package produces, making them visible to other packages.
+        .library(
+            name: "TextDiffCore",
+            targets: ["TextDiffCore"]
+        ),
+        .library(
+            name: "TextDiffMacOSUI",
+            targets: ["TextDiffMacOSUI"]
+        ),
         .library(
             name: "TextDiff",
-            targets: ["TextDiff"]),
+            targets: ["TextDiff"]
+        ),
     ],
     dependencies: [
         .package(
@@ -21,18 +29,38 @@ let package = Package(
         )
     ],
     targets: [
-        // Targets are the basic building blocks of a package, defining a module or a test suite.
-        // Targets can depend on other targets in this package and products from dependencies.
         .target(
-            name: "TextDiff",
+            name: "TextDiffCore",
             swiftSettings: [
                 .define("TESTING", .when(configuration: .debug))
             ]
         ),
+        .target(
+            name: "TextDiffMacOSUI",
+            dependencies: ["TextDiffCore"],
+            swiftSettings: [
+                .define("TESTING", .when(configuration: .debug))
+            ]
+        ),
+        .target(
+            name: "TextDiff",
+            dependencies: [
+                "TextDiffCore",
+                "TextDiffMacOSUI"
+            ]
+        ),
         .testTarget(
-            name: "TextDiffTests",
+            name: "TextDiffCoreTests",
+            dependencies: [
+                "TextDiffCore"
+            ]
+        ),
+        .testTarget(
+            name: "TextDiffMacOSUITests",
             dependencies: [
                 "TextDiff",
+                "TextDiffCore",
+                "TextDiffMacOSUI",
                 .product(name: "SnapshotTesting", package: "swift-snapshot-testing")
             ]
         ),

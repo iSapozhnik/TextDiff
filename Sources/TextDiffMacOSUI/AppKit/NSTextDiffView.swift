@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import TextDiffCore
 
 /// An AppKit view that renders a merged visual diff between two strings.
 public final class NSTextDiffView: NSView {

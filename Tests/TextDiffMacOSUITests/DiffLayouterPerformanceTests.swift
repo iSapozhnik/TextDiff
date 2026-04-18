@@ -1,6 +1,7 @@
 import AppKit
 import XCTest
-@testable import TextDiff
+import TextDiffCore
+@testable import TextDiffMacOSUI
 
 // swift test --filter DiffLayouterPerformanceTests 2>&1 | xcsift
 
