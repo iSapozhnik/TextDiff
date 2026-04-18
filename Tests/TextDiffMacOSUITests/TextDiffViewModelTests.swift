@@ -1,6 +1,6 @@
 import Testing
 import TextDiffCore
-@testable import TextDiffMacOSUI
+@testable import TextDiffUICommon
 
 @Test
 @MainActor

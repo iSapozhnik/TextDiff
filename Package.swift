@@ -6,7 +6,8 @@ import PackageDescription
 let package = Package(
     name: "TextDiff",
     platforms: [
-        .macOS(.v14)
+        .macOS(.v14),
+        .iOS(.v18)
     ],
     products: [
         .library(
@@ -14,8 +15,16 @@ let package = Package(
             targets: ["TextDiffCore"]
         ),
         .library(
+            name: "TextDiffUICommon",
+            targets: ["TextDiffUICommon"]
+        ),
+        .library(
             name: "TextDiffMacOSUI",
             targets: ["TextDiffMacOSUI"]
+        ),
+        .library(
+            name: "TextDiffIOSUI",
+            targets: ["TextDiffIOSUI"]
         ),
         .library(
             name: "TextDiff",
@@ -36,8 +45,28 @@ let package = Package(
             ]
         ),
         .target(
-            name: "TextDiffMacOSUI",
+            name: "TextDiffUICommon",
             dependencies: ["TextDiffCore"],
+            swiftSettings: [
+                .define("TESTING", .when(configuration: .debug))
+            ]
+        ),
+        .target(
+            name: "TextDiffMacOSUI",
+            dependencies: [
+                "TextDiffCore",
+                "TextDiffUICommon"
+            ],
+            swiftSettings: [
+                .define("TESTING", .when(configuration: .debug))
+            ]
+        ),
+        .target(
+            name: "TextDiffIOSUI",
+            dependencies: [
+                "TextDiffCore",
+                "TextDiffUICommon"
+            ],
             swiftSettings: [
                 .define("TESTING", .when(configuration: .debug))
             ]
@@ -46,7 +75,9 @@ let package = Package(
             name: "TextDiff",
             dependencies: [
                 "TextDiffCore",
-                "TextDiffMacOSUI"
+                "TextDiffUICommon",
+                .target(name: "TextDiffMacOSUI", condition: .when(platforms: [.macOS])),
+                .target(name: "TextDiffIOSUI", condition: .when(platforms: [.iOS]))
             ]
         ),
         .testTarget(
@@ -60,6 +91,7 @@ let package = Package(
             dependencies: [
                 "TextDiff",
                 "TextDiffCore",
+                "TextDiffUICommon",
                 "TextDiffMacOSUI",
                 .product(name: "SnapshotTesting", package: "swift-snapshot-testing")
             ]

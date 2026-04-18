@@ -1,4 +1,3 @@
-import AppKit
 import Foundation
 
 /// Visual configuration for rendering text diff segments.
@@ -9,13 +8,13 @@ public struct TextDiffStyle: @unchecked Sendable {
     public var removalsStyle: TextDiffChangeStyle
 
     /// Text color used for unchanged tokens.
-    public var textColor: NSColor
+    public var textColor: PlatformColor
     /// Font used for all rendered tokens.
-    public var font: NSFont
+    public var font: PlatformFont
     /// Corner radius applied to changed-token chips.
     public var chipCornerRadius: CGFloat
     /// Insets used to draw changed-token chips. Horizontal insets are floored to 3 points by the renderer.
-    public var chipInsets: NSEdgeInsets
+    public var chipInsets: TextDiffEdgeInsets
     /// Minimum visual gap between adjacent changed lexical chips.
     public var interChipSpacing: CGFloat
     /// Additional vertical spacing between wrapped lines.
@@ -38,10 +37,10 @@ public struct TextDiffStyle: @unchecked Sendable {
     public init(
         additionsStyle: TextDiffChangeStyle = .defaultAddition,
         removalsStyle: TextDiffChangeStyle = .defaultRemoval,
-        textColor: NSColor = .labelColor,
-        font: NSFont = .monospacedSystemFont(ofSize: 14, weight: .regular),
+        textColor: PlatformColor = TextDiffStyle.defaultTextColorValue,
+        font: PlatformFont = TextDiffStyle.defaultTextFontValue,
         chipCornerRadius: CGFloat = 4,
-        chipInsets: NSEdgeInsets = NSEdgeInsets(top: 1, left: 3, bottom: 1, right: 3),
+        chipInsets: TextDiffEdgeInsets = TextDiffEdgeInsets(top: 1, left: 3, bottom: 1, right: 3),
         interChipSpacing: CGFloat = 0,
         lineSpacing: CGFloat = 2,
         groupStrokeStyle: TextDiffGroupStrokeStyle = .solid
@@ -72,10 +71,10 @@ public struct TextDiffStyle: @unchecked Sendable {
     public init(
         additionsStyle: some TextDiffStyling,
         removalsStyle: some TextDiffStyling,
-        textColor: NSColor = .labelColor,
-        font: NSFont = .monospacedSystemFont(ofSize: 14, weight: .regular),
+        textColor: PlatformColor = TextDiffStyle.defaultTextColorValue,
+        font: PlatformFont = TextDiffStyle.defaultTextFontValue,
         chipCornerRadius: CGFloat = 4,
-        chipInsets: NSEdgeInsets = NSEdgeInsets(top: 1, left: 3, bottom: 1, right: 3),
+        chipInsets: TextDiffEdgeInsets = TextDiffEdgeInsets(top: 1, left: 3, bottom: 1, right: 3),
         interChipSpacing: CGFloat = 0,
         lineSpacing: CGFloat = 2,
         groupStrokeStyle: TextDiffGroupStrokeStyle = .solid
@@ -95,4 +94,12 @@ public struct TextDiffStyle: @unchecked Sendable {
 
     /// The default style tuned for system green insertions and system red deletions.
     public static let `default` = TextDiffStyle()
+
+    #if canImport(AppKit)
+    public static var defaultTextColorValue: PlatformColor { .labelColor }
+    public static var defaultTextFontValue: PlatformFont { .monospacedSystemFont(ofSize: 14, weight: .regular) }
+    #elseif canImport(UIKit)
+    public static var defaultTextColorValue: PlatformColor { .label }
+    public static var defaultTextFontValue: PlatformFont { .monospacedSystemFont(ofSize: 14, weight: .regular) }
+    #endif
 }

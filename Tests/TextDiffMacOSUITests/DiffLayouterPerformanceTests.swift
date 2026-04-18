@@ -1,6 +1,7 @@
 import AppKit
 import XCTest
 import TextDiffCore
+import TextDiffUICommon
 @testable import TextDiffMacOSUI
 
 // swift test --filter DiffLayouterPerformanceTests 2>&1 | xcsift
@@ -25,7 +26,7 @@ final class DiffLayouterPerformanceTests: XCTestCase {
     private func runLayoutPerformanceTest(wordCount: Int) {
         let style = TextDiffStyle.default
         let verticalInset = DiffTextLayoutMetrics.verticalTextInset(for: style)
-        let contentInsets = NSEdgeInsets(top: verticalInset, left: 0, bottom: verticalInset, right: 0)
+        let contentInsets = TextDiffEdgeInsets(top: verticalInset, left: 0, bottom: verticalInset, right: 0)
         let availableWidth: CGFloat = 520
 
         let original = Self.largeText(wordCount: wordCount)
@@ -47,7 +48,7 @@ final class DiffLayouterPerformanceTests: XCTestCase {
     private func runLayoutWithRevertInteractionsPerformanceTest(wordCount: Int) {
         let style = TextDiffStyle.default
         let verticalInset = DiffTextLayoutMetrics.verticalTextInset(for: style)
-        let contentInsets = NSEdgeInsets(top: verticalInset, left: 0, bottom: verticalInset, right: 0)
+        let contentInsets = TextDiffEdgeInsets(top: verticalInset, left: 0, bottom: verticalInset, right: 0)
         let availableWidth: CGFloat = 520
 
         let original = Self.largeText(wordCount: wordCount)

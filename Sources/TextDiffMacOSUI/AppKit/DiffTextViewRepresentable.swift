@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import TextDiffCore
+import TextDiffUICommon
 
 struct DiffTextViewRepresentable: NSViewRepresentable {
     let result: TextDiffResult?

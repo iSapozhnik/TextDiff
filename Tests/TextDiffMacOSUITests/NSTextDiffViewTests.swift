@@ -1,6 +1,7 @@
 import CoreGraphics
 import Testing
 import TextDiffCore
+import TextDiffUICommon
 @testable import TextDiffMacOSUI
 
 @Test

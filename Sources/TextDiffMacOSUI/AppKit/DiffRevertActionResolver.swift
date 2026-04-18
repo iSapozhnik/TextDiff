@@ -1,6 +1,7 @@
 import CoreGraphics
 import Foundation
 import TextDiffCore
+import TextDiffUICommon
 
 enum DiffRevertCandidateKind: Equatable {
     case singleInsertion

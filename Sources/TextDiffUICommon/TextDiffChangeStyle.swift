@@ -1,17 +1,16 @@
-import AppKit
 import Foundation
 
 /// Concrete change style used for additions and removals.
 public struct TextDiffChangeStyle: TextDiffStyling, @unchecked Sendable {
-    public var fillColor: NSColor
-    public var strokeColor: NSColor
-    public var textColorOverride: NSColor?
+    public var fillColor: PlatformColor
+    public var strokeColor: PlatformColor
+    public var textColorOverride: PlatformColor?
     public var strikethrough: Bool
 
     public init(
-        fillColor: NSColor,
-        strokeColor: NSColor,
-        textColorOverride: NSColor? = nil,
+        fillColor: PlatformColor,
+        strokeColor: PlatformColor,
+        textColorOverride: PlatformColor? = nil,
         strikethrough: Bool = false
     ) {
         self.fillColor = fillColor

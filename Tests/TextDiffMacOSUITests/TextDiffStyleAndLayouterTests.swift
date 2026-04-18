@@ -1,6 +1,7 @@
 import AppKit
 import Testing
 import TextDiffCore
+import TextDiffUICommon
 @testable import TextDiffMacOSUI
 
 @Test
@@ -78,7 +79,7 @@ func layouterEnforcesGapForAdjacentChangedLexicalRuns() {
 @Test
 func layouterPreservesMinimumHorizontalPaddingFloor() throws {
     var style = TextDiffStyle.default
-    style.chipInsets = NSEdgeInsets(top: 1, left: 1, bottom: 1, right: 1)
+    style.chipInsets = TextDiffEdgeInsets(top: 1, left: 1, bottom: 1, right: 1)
 
     let layout = DiffTokenLayouter.layout(
         segments: [DiffSegment(kind: .delete, tokenKind: .word, text: "token")],
@@ -235,17 +236,17 @@ func layouterUsesRemovalStrikethroughFromRemovalStyle() throws {
 @Test
 func verticalInsetIsNonNegativeAndMonotonic() {
     var base = TextDiffStyle.default
-    base.chipInsets = NSEdgeInsets(top: 0, left: 2, bottom: 0, right: 2)
+    base.chipInsets = TextDiffEdgeInsets(top: 0, left: 2, bottom: 0, right: 2)
     let baseInset = DiffTextLayoutMetrics.verticalTextInset(for: base)
     #expect(baseInset >= 0)
 
     var largerTop = base
-    largerTop.chipInsets = NSEdgeInsets(top: 6, left: 2, bottom: 0, right: 2)
+    largerTop.chipInsets = TextDiffEdgeInsets(top: 6, left: 2, bottom: 0, right: 2)
     let largerTopInset = DiffTextLayoutMetrics.verticalTextInset(for: largerTop)
     #expect(largerTopInset >= baseInset)
 
     var largerBottom = base
-    largerBottom.chipInsets = NSEdgeInsets(top: 0, left: 2, bottom: 7, right: 2)
+    largerBottom.chipInsets = TextDiffEdgeInsets(top: 0, left: 2, bottom: 7, right: 2)
     let largerBottomInset = DiffTextLayoutMetrics.verticalTextInset(for: largerBottom)
     #expect(largerBottomInset >= baseInset)
 }
@@ -284,4 +285,4 @@ private struct TestStyling: TextDiffStyling {
     let strikethrough: Bool
 }
 
-private let zeroInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
+private let zeroInsets = TextDiffEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)

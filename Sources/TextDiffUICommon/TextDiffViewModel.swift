@@ -1,6 +1,7 @@
 import Combine
 import Foundation
 import TextDiffCore
+import TextDiffCore
 
 @MainActor
 final class TextDiffViewModel: ObservableObject {

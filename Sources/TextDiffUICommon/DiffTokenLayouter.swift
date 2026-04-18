@@ -1,34 +1,38 @@
+#if canImport(AppKit)
 import AppKit
+#elseif canImport(UIKit)
+import UIKit
+#endif
 import CoreText
 import Foundation
 import TextDiffCore
 
-struct LaidOutRun {
-    let segmentIndex: Int
-    let segment: DiffSegment
-    let attributedText: NSAttributedString
-    let textRect: CGRect
-    let chipRect: CGRect?
-    let chipFillColor: NSColor?
-    let chipStrokeColor: NSColor?
-    let chipCornerRadius: CGFloat
-    let isChangedLexical: Bool
+package struct LaidOutRun {
+    package let segmentIndex: Int
+    package let segment: DiffSegment
+    package let attributedText: NSAttributedString
+    package let textRect: CGRect
+    package let chipRect: CGRect?
+    package let chipFillColor: PlatformColor?
+    package let chipStrokeColor: PlatformColor?
+    package let chipCornerRadius: CGFloat
+    package let isChangedLexical: Bool
 }
 
-struct DiffLayout {
-    let runs: [LaidOutRun]
-    let lineBreakMarkers: [CGPoint]
-    let contentSize: CGSize
+package struct DiffLayout {
+    package let runs: [LaidOutRun]
+    package let lineBreakMarkers: [CGPoint]
+    package let contentSize: CGSize
 }
 
-enum DiffTokenLayouter {
+package enum DiffTokenLayouter {
     private static let minimumHorizontalChipPadding: CGFloat = 3
 
-    static func layout(
+    package static func layout(
         segments: [DiffSegment],
         style: TextDiffStyle,
         availableWidth: CGFloat,
-        contentInsets: NSEdgeInsets
+        contentInsets: TextDiffEdgeInsets
     ) -> DiffLayout {
         let lineHeight = DiffTextLayoutMetrics.lineHeight(for: style)
         let textHeight = ceil(style.font.ascender - style.font.descender + style.font.leading)
@@ -109,8 +113,8 @@ enum DiffTokenLayouter {
             let textRect = CGRect(origin: CGPoint(x: textX, y: textY), size: textSize)
 
             var chipRect: CGRect?
-            var chipFillColor: NSColor?
-            var chipStrokeColor: NSColor?
+            var chipFillColor: PlatformColor?
+            var chipStrokeColor: PlatformColor?
             if isChangedLexical {
                 let chipHeight = textSize.height + chipInsets.top + chipInsets.bottom
                 let chipY = lineTop + ((lineHeight - chipHeight) / 2)
@@ -154,7 +158,7 @@ enum DiffTokenLayouter {
 
     private static func measuredTextWidth(
         for text: String,
-        font: NSFont,
+        font: PlatformFont,
         cache: inout [WidthCacheKey: CGFloat]
     ) -> CGFloat {
         guard !text.isEmpty else { return 0 }
@@ -191,8 +195,8 @@ enum DiffTokenLayouter {
         return NSAttributedString(string: segment.text, attributes: attributes)
     }
 
-    private static func effectiveChipInsets(for style: TextDiffStyle) -> NSEdgeInsets {
-        NSEdgeInsets(
+    private static func effectiveChipInsets(for style: TextDiffStyle) -> TextDiffEdgeInsets {
+        TextDiffEdgeInsets(
             top: style.chipInsets.top,
             left: max(style.chipInsets.left, minimumHorizontalChipPadding),
             bottom: style.chipInsets.bottom,
@@ -200,7 +204,7 @@ enum DiffTokenLayouter {
         )
     }
 
-    private static func textColor(for segment: DiffSegment, style: TextDiffStyle) -> NSColor {
+    private static func textColor(for segment: DiffSegment, style: TextDiffStyle) -> PlatformColor {
         switch segment.kind {
         case .equal:
             return style.textColor
@@ -217,7 +221,7 @@ enum DiffTokenLayouter {
         }
     }
 
-    private static func chipFillColorForOperation(_ kind: DiffOperationKind, style: TextDiffStyle) -> NSColor? {
+    private static func chipFillColorForOperation(_ kind: DiffOperationKind, style: TextDiffStyle) -> PlatformColor? {
         switch kind {
         case .delete:
             return style.removalsStyle.fillColor
@@ -228,7 +232,7 @@ enum DiffTokenLayouter {
         }
     }
 
-    private static func chipStrokeColorForOperation(_ kind: DiffOperationKind, style: TextDiffStyle) -> NSColor? {
+    private static func chipStrokeColorForOperation(_ kind: DiffOperationKind, style: TextDiffStyle) -> PlatformColor? {
         switch kind {
         case .delete:
             return style.removalsStyle.strokeColor
@@ -239,13 +243,13 @@ enum DiffTokenLayouter {
         }
     }
 
-    private static func adaptiveChipTextColor(for fillColor: NSColor) -> NSColor {
-        let rgb = fillColor.usingColorSpace(.deviceRGB) ?? fillColor
-        let luminance = (0.2126 * rgb.redComponent) + (0.7152 * rgb.greenComponent) + (0.0722 * rgb.blueComponent)
+    private static func adaptiveChipTextColor(for fillColor: PlatformColor) -> PlatformColor {
+        let components = rgbaComponents(for: fillColor)
+        let luminance = (0.2126 * components.red) + (0.7152 * components.green) + (0.0722 * components.blue)
         if luminance > 0.55 {
-            return NSColor.black.withAlphaComponent(0.9)
+            return PlatformColor.black.withAlphaComponent(0.9)
         }
-        return NSColor.white.withAlphaComponent(0.95)
+        return PlatformColor.white.withAlphaComponent(0.95)
     }
 
     private static func pieces(from segments: [DiffSegment]) -> [LayoutPiece] {
@@ -311,4 +315,23 @@ private struct WidthCacheKey: Hashable {
     let text: String
     let fontName: String
     let fontSize: CGFloat
+}
+
+private func rgbaComponents(for color: PlatformColor) -> (red: CGFloat, green: CGFloat, blue: CGFloat, alpha: CGFloat) {
+    #if canImport(AppKit)
+    let rgb = color.usingColorSpace(.deviceRGB) ?? color
+    var red: CGFloat = 0
+    var green: CGFloat = 0
+    var blue: CGFloat = 0
+    var alpha: CGFloat = 0
+    rgb.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+    return (red, green, blue, alpha)
+    #elseif canImport(UIKit)
+    var red: CGFloat = 0
+    var green: CGFloat = 0
+    var blue: CGFloat = 0
+    var alpha: CGFloat = 0
+    color.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+    return (red, green, blue, alpha)
+    #endif
 }

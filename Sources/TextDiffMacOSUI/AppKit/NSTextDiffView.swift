@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import TextDiffCore
+import TextDiffUICommon
 
 /// An AppKit view that renders a merged visual diff between two strings.
 public final class NSTextDiffView: NSView {
@@ -353,7 +354,7 @@ public final class NSTextDiffView: NSView {
         }
 
         let verticalInset = DiffTextLayoutMetrics.verticalTextInset(for: style)
-        let contentInsets = NSEdgeInsets(top: verticalInset, left: 0, bottom: verticalInset, right: 0)
+        let contentInsets = TextDiffEdgeInsets(top: verticalInset, left: 0, bottom: verticalInset, right: 0)
         let availableWidth = max(1, width - contentInsets.left - contentInsets.right)
         let layout = DiffTokenLayouter.layout(
             segments: segments,

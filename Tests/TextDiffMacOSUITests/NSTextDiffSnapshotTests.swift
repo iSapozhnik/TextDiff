@@ -2,6 +2,7 @@ import AppKit
 import SnapshotTesting
 import XCTest
 import TextDiffCore
+import TextDiffUICommon
 @testable import TextDiffMacOSUI
 
 final class NSTextDiffSnapshotTests: XCTestCase {
