@@ -1,12 +1,13 @@
 # TextDiff
 
-TextDiff is a macOS Swift package that computes token-level diffs and renders a merged, display-only diff view for both SwiftUI (`TextDiffView`) and AppKit (`NSTextDiffView`) via the same custom AppKit renderer.
+TextDiff is a Swift package that computes token-level diffs and renders a merged, display-only diff view across Apple platforms. It supports SwiftUI on macOS and iOS, AppKit on macOS (`NSTextDiffView`), and UIKit on iOS (`UITextDiffView`).
 
 ![TextDiff preview](Resources/textdiff-preview.png)
 
 ## Requirements
 
 - macOS 14+
+- iOS 18+
 - Swift tools 6.1+
 
 ## Installation
@@ -19,13 +20,30 @@ dependencies: [
 ]
 ```
 
-Then import:
+Choose the product that matches how you want to use the package:
+
+| Product | Use when |
+| --- | --- |
+| `TextDiff` | Default umbrella product for app code. |
+| `TextDiffCore` | Engine-only diff computation with no UI. |
+| `TextDiffUICommon` | Shared UI types for advanced module-level integrations. |
+| `TextDiffMacOSUI` | Direct dependency on macOS UI APIs. |
+| `TextDiffIOSUI` | Direct dependency on iOS UI APIs. |
+ 
+## Which Product Should I Import?
+
+- Use `import TextDiff` by default. It re-exports the common public API plus the matching platform UI module.
+- Use `import TextDiffCore` when you only need diffing and result types without UI.
+- Use `import TextDiffMacOSUI` or `import TextDiffIOSUI` only when you intentionally want direct platform module dependencies.
+- Most app code should not need to import `TextDiffUICommon` separately.
+
+Then import the module you chose:
 
 ```swift
 import TextDiff
 ```
 
-## Basic Usage
+## SwiftUI Usage
 
 ```swift
 import SwiftUI
@@ -43,7 +61,7 @@ struct DemoView: View {
 }
 ```
 
-## AppKit Usage
+## AppKit Usage (macOS)
 
 ```swift
 import AppKit
@@ -65,6 +83,19 @@ You can update content in place:
 diffView.mode = .character
 diffView.original = "Add a diff"
 diffView.updated = "Added a diff"
+```
+
+## UIKit Usage (iOS)
+
+```swift
+import UIKit
+import TextDiff
+
+let diffView = UITextDiffView(
+    original: "This is teh old sentence.",
+    updated: "This is the updated sentence!",
+    mode: .token
+)
 ```
 
 ## Comparison Modes
@@ -140,6 +171,21 @@ let result = TextDiffEngine.result(
 let diffView = NSTextDiffView(result: result)
 ```
 
+UIKit has the same precomputed rendering path:
+
+```swift
+import UIKit
+import TextDiff
+
+let result = TextDiffEngine.result(
+    original: "Track old values in storage.",
+    updated: "Track new values in storage.",
+    mode: .token
+)
+
+let diffView = UITextDiffView(result: result)
+```
+
 ## Custom Styling
 
 ```swift
@@ -148,18 +194,18 @@ import TextDiff
 
 let customStyle = TextDiffStyle(
     additionsStyle: TextDiffChangeStyle(
-        fillColor: NSColor.systemGreen.withAlphaComponent(0.28),
-        strokeColor: NSColor.systemGreen.withAlphaComponent(0.75)
+        fillColor: PlatformColor.systemGreen.withAlphaComponent(0.28),
+        strokeColor: PlatformColor.systemGreen.withAlphaComponent(0.75)
     ),
     removalsStyle: TextDiffChangeStyle(
-        fillColor: NSColor.systemRed.withAlphaComponent(0.24),
-        strokeColor: NSColor.systemRed.withAlphaComponent(0.75),
+        fillColor: PlatformColor.systemRed.withAlphaComponent(0.24),
+        strokeColor: PlatformColor.systemRed.withAlphaComponent(0.75),
         strikethrough: true
     ),
-    textColor: .labelColor,
-    font: .monospacedSystemFont(ofSize: 15, weight: .regular),
+    textColor: PlatformColor.label,
+    font: PlatformFont.monospacedSystemFont(ofSize: 15, weight: .regular),
     chipCornerRadius: 5,
-    chipInsets: NSEdgeInsets(top: 1, left: 3, bottom: 1, right: 3),
+    chipInsets: TextDiffEdgeInsets(top: 1, left: 3, bottom: 1, right: 3),
     interChipSpacing: 4,
     lineSpacing: 2
 )
@@ -176,6 +222,12 @@ struct StyledDemoView: View {
 ```
 
 Change-specific colors and text treatment live under `additionsStyle` and `removalsStyle`. Shared layout and typography stay on `TextDiffStyle` (`font`, `chipInsets`, `interChipSpacing`, `lineSpacing`, etc.).
+
+## macOS-Only Features
+
+- Revert actions are available on macOS only.
+- The invisible characters debug overlay is available on macOS only.
+- The binding-based `TextDiffView` initializer is available on macOS only.
 
 ## Behavior Notes
 
@@ -199,9 +251,10 @@ Change-specific colors and text treatment live under `additionsStyle` and `remov
 
 Snapshot coverage uses [Point-Free SnapshotTesting](https://github.com/pointfreeco/swift-snapshot-testing) with `swift-testing`.
 
-- Snapshot tests live in `Tests/TextDiffTests/TextDiffSnapshotTests.swift`.
-- AppKit snapshot tests live in `Tests/TextDiffTests/NSTextDiffSnapshotTests.swift`.
-- Baselines are stored under `Tests/TextDiffTests/__Snapshots__/TextDiffSnapshotTests/` and `Tests/TextDiffTests/__Snapshots__/NSTextDiffSnapshotTests/`.
+- Engine tests live in `Tests/TextDiffCoreTests/`.
+- UI and snapshot tests currently live in `Tests/TextDiffMacOSUITests/`.
+- Snapshot suites live in `Tests/TextDiffMacOSUITests/TextDiffSnapshotTests.swift` and `Tests/TextDiffMacOSUITests/NSTextDiffSnapshotTests.swift`.
+- Baselines are stored under `Tests/TextDiffMacOSUITests/__Snapshots__/`.
 - The suite uses `@Suite(.snapshots(record: .missing))` to record only missing baselines.
 
 Run all tests:
@@ -212,21 +265,21 @@ swift test 2>&1 | xcsift --quiet
 
 Update baselines intentionally:
 
-1. Temporarily switch the suite trait in snapshot suites (for example, `Tests/TextDiffTests/TextDiffSnapshotTests.swift` and `Tests/TextDiffTests/NSTextDiffSnapshotTests.swift`) from `.missing` to `.all`.
+1. Temporarily switch the suite trait in snapshot suites (for example, `Tests/TextDiffMacOSUITests/TextDiffSnapshotTests.swift` and `Tests/TextDiffMacOSUITests/NSTextDiffSnapshotTests.swift`) from `.missing` to `.all`.
 2. Run `swift test 2>&1 | xcsift --quiet` once to rewrite baselines.
 3. Switch the suite trait back to `.missing`.
 4. Review snapshot image diffs in your PR before merging.
 
 ## Performance Testing
 
-- Performance baselines for `DiffLayouterPerformanceTests` are stored under `.swiftpm/xcode/xcshareddata/xcbaselines/TextDiffTests.xcbaseline/`.
+- Performance baselines for `DiffLayouterPerformanceTests` are stored under `.swiftpm/xcode/xcshareddata/xcbaselines/TextDiffMacOSUITests.xcbaseline/`.
 - `swift test` runs the performance tests, but it does not surface the committed Xcode baseline values in its output.
 - For baseline-aware runs, use the generated SwiftPM workspace and the `TextDiff` scheme.
 
 Run the layouter performance suite with Xcode:
 
 ```bash
-xcodebuild -workspace .swiftpm/xcode/package.xcworkspace -scheme TextDiff -destination 'platform=macOS' -configuration Debug test -only-testing:TextDiffTests/DiffLayouterPerformanceTests 2>&1 | xcsift
+xcodebuild -workspace .swiftpm/xcode/package.xcworkspace -scheme TextDiff -destination 'platform=macOS' -configuration Debug test -only-testing:TextDiffMacOSUITests/DiffLayouterPerformanceTests 2>&1 | xcsift
 ```
 
 If you need the raw measured averages for comparison, run the same command once without `xcsift` because XCTest prints the per-test values directly in the plain `xcodebuild` output.
