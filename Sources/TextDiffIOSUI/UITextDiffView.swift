@@ -181,10 +181,11 @@ public final class UITextDiffView: UIView {
         isBatchUpdating = true
         defer {
             isBatchUpdating = false
-            pendingStyleInvalidation = false
         }
 
         self.style = style
+        // apply(result:) invalidates layout for result-driven updates.
+        pendingStyleInvalidation = false
         apply(result: result)
     }
 
