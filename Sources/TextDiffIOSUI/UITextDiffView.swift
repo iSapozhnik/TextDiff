@@ -24,10 +24,7 @@ public final class UITextDiffView: UIView {
 
     public var style: TextDiffStyle {
         didSet {
-            guard !isBatchUpdating else {
-                pendingStyleInvalidation = true
-                return
-            }
+            guard !isBatchUpdating else { return }
             invalidateCachedLayout()
         }
     }
@@ -47,7 +44,6 @@ public final class UITextDiffView: UIView {
     private var lastUpdated: String
     private var lastModeKey: Int
     private var isBatchUpdating = false
-    private var pendingStyleInvalidation = false
     private var cachedWidth: CGFloat = -1
     private var cachedLayout: DiffLayout?
 
@@ -158,12 +154,10 @@ public final class UITextDiffView: UIView {
         isBatchUpdating = true
         defer {
             isBatchUpdating = false
-            let needsStyleInvalidation = pendingStyleInvalidation
-            pendingStyleInvalidation = false
 
             contentSource = .text
             let didRecompute = updateSegmentsIfNeeded()
-            if needsStyleInvalidation, !didRecompute {
+            if !didRecompute {
                 invalidateCachedLayout()
             }
         }
@@ -184,8 +178,6 @@ public final class UITextDiffView: UIView {
         }
 
         self.style = style
-        // apply(result:) invalidates layout for result-driven updates.
-        pendingStyleInvalidation = false
         apply(result: result)
     }
 
