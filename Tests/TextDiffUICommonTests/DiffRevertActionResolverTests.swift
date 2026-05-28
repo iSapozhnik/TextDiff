@@ -27,26 +27,50 @@ func candidatesBuildPairedReplacementForAdjacentDeleteInsert() throws {
 }
 
 @Test
-func indexedSegmentsAdvancePastEqualSegmentsEvenWhenTextValidationFails() {
-    let segments = [
-        DiffSegment(kind: .equal, tokenKind: .word, text: "abc"),
-        DiffSegment(kind: .delete, tokenKind: .word, text: "X"),
-        DiffSegment(kind: .insert, tokenKind: .word, text: "Y")
-    ]
-
-    let indexed = DiffSegmentIndexer.indexedSegments(
-        from: segments,
-        original: "zzzX",
-        updated: "zzzY"
+func actionRejectsStaleCandidateRangeWhenUpdatedFragmentNoLongerMatches() {
+    let updated = "Can you think of a clearer focus state"
+    let currentRange = (updated as NSString).range(of: "clearer")
+    let staleRange = NSRange(location: currentRange.location + 5, length: currentRange.length)
+    let candidate = DiffRevertCandidate(
+        id: 0,
+        kind: .pairedReplacement,
+        tokenKind: .word,
+        segmentIndices: [0, 1],
+        updatedRange: staleRange,
+        replacementText: "clearmore",
+        originalTextFragment: "clearmore",
+        updatedTextFragment: "clearer"
     )
 
-    #expect(indexed.count == 3)
-    #expect(indexed[0].originalRange == NSRange(location: 0, length: 3))
-    #expect(indexed[0].updatedRange == NSRange(location: 0, length: 3))
-    #expect(indexed[1].originalRange == NSRange(location: 3, length: 1))
-    #expect(indexed[1].updatedRange == NSRange(location: 3, length: 0))
-    #expect(indexed[2].originalRange == NSRange(location: 4, length: 0))
-    #expect(indexed[2].updatedRange == NSRange(location: 3, length: 1))
+    let action = DiffRevertActionResolver.action(from: candidate, updated: updated)
+
+    #expect(action == nil)
+}
+
+@Test
+func candidateRangesIgnoreDisplayOnlyEqualWhitespace() throws {
+    let original = "Delete this Can you think of a clearmore state"
+    let updated = "Can you think of a clearer state"
+    let segments = TextDiffEngine.diff(original: original, updated: updated, mode: .token)
+
+    let candidates = DiffRevertActionResolver.candidates(
+        from: segments,
+        mode: .token,
+        original: original,
+        updated: updated
+    )
+    let matchedReplacement = candidates.first { candidate in
+        candidate.kind == .pairedReplacement
+            && candidate.originalTextFragment == "clearmore"
+            && candidate.updatedTextFragment == "clearer"
+    }
+    let replacement = try #require(matchedReplacement)
+    let expectedRange = (updated as NSString).range(of: "clearer")
+
+    #expect(replacement.updatedRange == expectedRange)
+
+    let action = try #require(DiffRevertActionResolver.action(from: replacement, updated: updated))
+    #expect(action.resultingUpdated == "Can you think of a clearmore state")
 }
 
 @Test

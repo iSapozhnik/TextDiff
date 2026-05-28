@@ -32,8 +32,6 @@ package enum DiffSegmentIndexer {
                 updatedRange = NSRange(location: updatedCursor, length: textLength)
                 let originalMatches = textMatches(segment.text, source: originalNSString, at: originalCursor)
                 let updatedMatches = textMatches(segment.text, source: updatedNSString, at: updatedCursor)
-                // Some tests intentionally feed synthetic `.equal` segments whose text does not
-                // match the source strings, and the indexer is expected to keep advancing cursors.
                 #if !TESTING
                 assert(
                     originalMatches,
@@ -44,8 +42,12 @@ package enum DiffSegmentIndexer {
                     "Equal segment text mismatch in updated at \(updatedCursor) for segment \(index): \(segment.text)"
                 )
                 #endif
-                originalCursor += textLength
-                updatedCursor += textLength
+                if originalMatches {
+                    originalCursor += textLength
+                }
+                if updatedMatches {
+                    updatedCursor += textLength
+                }
             case .delete:
                 originalRange = NSRange(location: originalCursor, length: textLength)
                 updatedRange = NSRange(location: updatedCursor, length: 0)

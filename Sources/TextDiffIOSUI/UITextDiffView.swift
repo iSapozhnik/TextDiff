@@ -340,6 +340,12 @@ public final class UITextDiffView: UIView {
               let action = DiffRevertActionResolver.action(from: candidate, updated: updated) else {
             return
         }
+        setContent(
+            original: original,
+            updated: action.resultingUpdated,
+            style: style,
+            mode: mode
+        )
         onRevertAction?(action)
     }
 

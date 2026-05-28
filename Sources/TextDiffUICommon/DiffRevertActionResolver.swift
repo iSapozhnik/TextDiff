@@ -205,6 +205,10 @@ package enum DiffRevertActionResolver {
         updated: String
     ) -> TextDiffRevertAction? {
         let nsUpdated = updated as NSString
+        guard candidateUpdatedFragmentMatches(candidate, updated: nsUpdated) else {
+            return nil
+        }
+
         var updatedRange = candidate.updatedRange
         if candidate.kind == .singleDeletion, updatedRange.location > nsUpdated.length {
             updatedRange.location = nsUpdated.length
@@ -255,6 +259,25 @@ package enum DiffRevertActionResolver {
             updatedTextFragment: candidate.updatedTextFragment,
             resultingUpdated: resultingUpdated
         )
+    }
+
+    private static func candidateUpdatedFragmentMatches(
+        _ candidate: DiffRevertCandidate,
+        updated: NSString
+    ) -> Bool {
+        guard let updatedTextFragment = candidate.updatedTextFragment else {
+            return true
+        }
+
+        let range = candidate.updatedRange
+        guard range.location >= 0, range.length >= 0 else {
+            return false
+        }
+        guard NSMaxRange(range) <= updated.length else {
+            return false
+        }
+
+        return updated.substring(with: range) == updatedTextFragment
     }
 
     private static func isLexicalChange(_ segment: DiffSegment) -> Bool {
