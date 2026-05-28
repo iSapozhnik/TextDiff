@@ -6,13 +6,30 @@ import PackageDescription
 let package = Package(
     name: "TextDiff",
     platforms: [
-        .macOS(.v14)
+        .macOS(.v14),
+        .iOS(.v18)
     ],
     products: [
-        // Products define the executables and libraries a package produces, making them visible to other packages.
+        .library(
+            name: "TextDiffCore",
+            targets: ["TextDiffCore"]
+        ),
+        .library(
+            name: "TextDiffUICommon",
+            targets: ["TextDiffUICommon"]
+        ),
+        .library(
+            name: "TextDiffMacOSUI",
+            targets: ["TextDiffMacOSUI"]
+        ),
+        .library(
+            name: "TextDiffIOSUI",
+            targets: ["TextDiffIOSUI"]
+        ),
         .library(
             name: "TextDiff",
-            targets: ["TextDiff"]),
+            targets: ["TextDiff"]
+        ),
     ],
     dependencies: [
         .package(
@@ -21,18 +38,68 @@ let package = Package(
         )
     ],
     targets: [
-        // Targets are the basic building blocks of a package, defining a module or a test suite.
-        // Targets can depend on other targets in this package and products from dependencies.
         .target(
-            name: "TextDiff",
+            name: "TextDiffCore",
             swiftSettings: [
                 .define("TESTING", .when(configuration: .debug))
             ]
         ),
+        .target(
+            name: "TextDiffUICommon",
+            dependencies: ["TextDiffCore"],
+            swiftSettings: [
+                .define("TESTING", .when(configuration: .debug))
+            ]
+        ),
+        .target(
+            name: "TextDiffMacOSUI",
+            dependencies: [
+                "TextDiffCore",
+                "TextDiffUICommon"
+            ],
+            swiftSettings: [
+                .define("TESTING", .when(configuration: .debug))
+            ]
+        ),
+        .target(
+            name: "TextDiffIOSUI",
+            dependencies: [
+                "TextDiffCore",
+                "TextDiffUICommon"
+            ],
+            swiftSettings: [
+                .define("TESTING", .when(configuration: .debug))
+            ]
+        ),
+        .target(
+            name: "TextDiff",
+            dependencies: [
+                "TextDiffCore",
+                "TextDiffUICommon",
+                .target(name: "TextDiffMacOSUI", condition: .when(platforms: [.macOS])),
+                .target(name: "TextDiffIOSUI", condition: .when(platforms: [.iOS]))
+            ]
+        ),
         .testTarget(
-            name: "TextDiffTests",
+            name: "TextDiffCoreTests",
+            dependencies: [
+                "TextDiffCore"
+            ]
+        ),
+        .testTarget(
+            name: "TextDiffUICommonTests",
+            dependencies: [
+                "TextDiffCore",
+                "TextDiffUICommon"
+            ]
+        ),
+        .testTarget(
+            name: "TextDiffMacOSUITests",
             dependencies: [
                 "TextDiff",
+                "TextDiffCore",
+                "TextDiffUICommon",
+                "TextDiffMacOSUI",
                 .product(name: "SnapshotTesting", package: "swift-snapshot-testing")
             ]
         ),

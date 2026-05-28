@@ -1,0 +1,337 @@
+#if canImport(AppKit)
+import AppKit
+#elseif canImport(UIKit)
+import UIKit
+#endif
+import CoreText
+import Foundation
+import TextDiffCore
+
+package struct LaidOutRun {
+    package let segmentIndex: Int
+    package let segment: DiffSegment
+    package let attributedText: NSAttributedString
+    package let textRect: CGRect
+    package let chipRect: CGRect?
+    package let chipFillColor: PlatformColor?
+    package let chipStrokeColor: PlatformColor?
+    package let chipCornerRadius: CGFloat
+    package let isChangedLexical: Bool
+}
+
+package struct DiffLayout {
+    package let runs: [LaidOutRun]
+    package let lineBreakMarkers: [CGPoint]
+    package let contentSize: CGSize
+}
+
+package enum DiffTokenLayouter {
+    private static let minimumHorizontalChipPadding: CGFloat = 3
+
+    package static func layout(
+        segments: [DiffSegment],
+        style: TextDiffStyle,
+        availableWidth: CGFloat,
+        contentInsets: TextDiffEdgeInsets
+    ) -> DiffLayout {
+        let lineHeight = DiffTextLayoutMetrics.lineHeight(for: style)
+        let textHeight = ceil(style.font.ascender - style.font.descender + style.font.leading)
+        let maxLineWidth = availableWidth > 0 ? availableWidth : .greatestFiniteMagnitude
+        let lineStartX = contentInsets.left
+        let maxLineX = lineStartX + maxLineWidth
+
+        var runs: [LaidOutRun] = []
+        var cursorX = lineStartX
+        var lineTop = contentInsets.top
+        var maxUsedX = lineStartX
+        var lineCount = 1
+        var lineHasContent = false
+        var lineBreakMarkers: [CGPoint] = []
+        var widthCache: [WidthCacheKey: CGFloat] = [:]
+        var previousChangedLexical = false
+
+        func moveToNewLine() {
+            lineTop += lineHeight
+            cursorX = lineStartX
+            lineHasContent = false
+            previousChangedLexical = false
+            lineCount += 1
+        }
+
+        for piece in pieces(from: segments) {
+            if piece.isLineBreak {
+                lineBreakMarkers.append(
+                    CGPoint(x: cursorX, y: lineTop + (lineHeight / 2))
+                )
+                moveToNewLine()
+                continue
+            }
+
+            guard !piece.text.isEmpty else { continue }
+
+            let segment = DiffSegment(kind: piece.kind, tokenKind: piece.tokenKind, text: piece.text)
+            let isChangedLexical = segment.kind != .equal
+                && (segment.tokenKind != .whitespace || segment.kind == .delete)
+            var leadingGap: CGFloat = 0
+            if previousChangedLexical && isChangedLexical {
+                leadingGap = max(0, style.interChipSpacing)
+            }
+
+            let attributedText = attributedToken(for: segment, style: style)
+            let displayTextWidth = measuredTextWidth(
+                for: piece.text,
+                font: style.font,
+                cache: &widthCache
+            )
+            let textSize = CGSize(width: displayTextWidth, height: textHeight)
+            let chipInsets = effectiveChipInsets(for: style)
+
+            var runWidth = isChangedLexical
+                ? displayTextWidth + chipInsets.left + chipInsets.right
+                : displayTextWidth
+
+            let requiredWidth = leadingGap + runWidth
+
+            let wrapped = lineHasContent && cursorX + requiredWidth > maxLineX
+            if wrapped {
+                moveToNewLine()
+                leadingGap = 0
+
+                // Drop leading whitespace after wrap.
+                if piece.tokenKind == .whitespace {
+                    continue
+                }
+
+                runWidth = isChangedLexical
+                    ? displayTextWidth + chipInsets.left + chipInsets.right
+                    : displayTextWidth
+            }
+
+            cursorX += leadingGap
+            let textY = lineTop + ((lineHeight - textSize.height) / 2)
+            let textX = cursorX + (isChangedLexical ? chipInsets.left : 0)
+            let textRect = CGRect(origin: CGPoint(x: textX, y: textY), size: textSize)
+
+            var chipRect: CGRect?
+            var chipFillColor: PlatformColor?
+            var chipStrokeColor: PlatformColor?
+            if isChangedLexical {
+                let chipHeight = textSize.height + chipInsets.top + chipInsets.bottom
+                let chipY = lineTop + ((lineHeight - chipHeight) / 2)
+                chipRect = CGRect(x: cursorX, y: chipY, width: runWidth, height: chipHeight)
+                chipFillColor = chipFillColorForOperation(segment.kind, style: style)
+                chipStrokeColor = chipStrokeColorForOperation(segment.kind, style: style)
+            }
+
+            runs.append(
+                LaidOutRun(
+                    segmentIndex: piece.segmentIndex,
+                    segment: segment,
+                    attributedText: attributedText,
+                    textRect: textRect,
+                    chipRect: chipRect,
+                    chipFillColor: chipFillColor,
+                    chipStrokeColor: chipStrokeColor,
+                    chipCornerRadius: style.chipCornerRadius,
+                    isChangedLexical: isChangedLexical
+                )
+            )
+
+            cursorX += runWidth
+            maxUsedX = max(maxUsedX, cursorX)
+            lineHasContent = true
+            previousChangedLexical = isChangedLexical
+        }
+
+        let contentHeight = contentInsets.top + contentInsets.bottom + (CGFloat(lineCount) * lineHeight)
+        let usedWidth = maxUsedX + contentInsets.right
+        let intrinsicWidth = availableWidth.isFinite && availableWidth > 0
+            ? (contentInsets.left + availableWidth + contentInsets.right)
+            : usedWidth
+
+        return DiffLayout(
+            runs: runs,
+            lineBreakMarkers: lineBreakMarkers,
+            contentSize: CGSize(width: max(intrinsicWidth, usedWidth), height: contentHeight)
+        )
+    }
+
+    private static func measuredTextWidth(
+        for text: String,
+        font: PlatformFont,
+        cache: inout [WidthCacheKey: CGFloat]
+    ) -> CGFloat {
+        guard !text.isEmpty else { return 0 }
+
+        let key = WidthCacheKey(
+            text: text,
+            fontName: font.fontName,
+            fontSize: font.pointSize
+        )
+        if let cached = cache[key] {
+            return cached
+        }
+
+        let attributed = NSAttributedString(
+            string: text,
+            attributes: [.font: font]
+        )
+        let line = CTLineCreateWithAttributedString(attributed)
+        let width = CGFloat(CTLineGetTypographicBounds(line, nil, nil, nil))
+        cache[key] = width
+        return width
+    }
+
+    private static func attributedToken(for segment: DiffSegment, style: TextDiffStyle) -> NSAttributedString {
+        var attributes: [NSAttributedString.Key: Any] = [
+            .font: style.font,
+            .foregroundColor: textColor(for: segment, style: style)
+        ]
+
+        if style.removalsStyle.strikethrough, segment.kind == .delete, segment.tokenKind != .whitespace {
+            attributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue
+        }
+
+        return NSAttributedString(string: segment.text, attributes: attributes)
+    }
+
+    private static func effectiveChipInsets(for style: TextDiffStyle) -> TextDiffEdgeInsets {
+        TextDiffEdgeInsets(
+            top: style.chipInsets.top,
+            left: max(style.chipInsets.left, minimumHorizontalChipPadding),
+            bottom: style.chipInsets.bottom,
+            right: max(style.chipInsets.right, minimumHorizontalChipPadding)
+        )
+    }
+
+    private static func textColor(for segment: DiffSegment, style: TextDiffStyle) -> PlatformColor {
+        switch segment.kind {
+        case .equal:
+            return style.textColor
+        case .delete:
+            if let override = style.removalsStyle.textColorOverride {
+                return override
+            }
+            return adaptiveChipTextColor(for: style.removalsStyle.fillColor)
+        case .insert:
+            if let override = style.additionsStyle.textColorOverride {
+                return override
+            }
+            return adaptiveChipTextColor(for: style.additionsStyle.fillColor)
+        }
+    }
+
+    private static func chipFillColorForOperation(_ kind: DiffOperationKind, style: TextDiffStyle) -> PlatformColor? {
+        switch kind {
+        case .delete:
+            return style.removalsStyle.fillColor
+        case .insert:
+            return style.additionsStyle.fillColor
+        case .equal:
+            return nil
+        }
+    }
+
+    private static func chipStrokeColorForOperation(_ kind: DiffOperationKind, style: TextDiffStyle) -> PlatformColor? {
+        switch kind {
+        case .delete:
+            return style.removalsStyle.strokeColor
+        case .insert:
+            return style.additionsStyle.strokeColor
+        case .equal:
+            return nil
+        }
+    }
+
+    private static func adaptiveChipTextColor(for fillColor: PlatformColor) -> PlatformColor {
+        let components = rgbaComponents(for: fillColor)
+        let luminance = (0.2126 * components.red) + (0.7152 * components.green) + (0.0722 * components.blue)
+        if luminance > 0.55 {
+            return PlatformColor.black.withAlphaComponent(0.9)
+        }
+        return PlatformColor.white.withAlphaComponent(0.95)
+    }
+
+    private static func pieces(from segments: [DiffSegment]) -> [LayoutPiece] {
+        var output: [LayoutPiece] = []
+        output.reserveCapacity(segments.count)
+
+        for (segmentIndex, segment) in segments.enumerated() {
+            var buffer = ""
+            for scalar in segment.text.unicodeScalars {
+                if scalar == "\n" {
+                    if !buffer.isEmpty {
+                        output.append(
+                            LayoutPiece(
+                                segmentIndex: segmentIndex,
+                                kind: segment.kind,
+                                tokenKind: segment.tokenKind,
+                                text: buffer,
+                                isLineBreak: false
+                            )
+                        )
+                        buffer.removeAll(keepingCapacity: true)
+                    }
+                    output.append(
+                        LayoutPiece(
+                            segmentIndex: segmentIndex,
+                            kind: segment.kind,
+                            tokenKind: .whitespace,
+                            text: "",
+                            isLineBreak: true
+                        )
+                    )
+                } else {
+                    buffer.unicodeScalars.append(scalar)
+                }
+            }
+
+            if !buffer.isEmpty {
+                output.append(
+                    LayoutPiece(
+                        segmentIndex: segmentIndex,
+                        kind: segment.kind,
+                        tokenKind: segment.tokenKind,
+                        text: buffer,
+                        isLineBreak: false
+                    )
+                )
+            }
+        }
+
+        return output
+    }
+}
+
+private struct LayoutPiece {
+    let segmentIndex: Int
+    let kind: DiffOperationKind
+    let tokenKind: DiffTokenKind
+    let text: String
+    let isLineBreak: Bool
+}
+
+private struct WidthCacheKey: Hashable {
+    let text: String
+    let fontName: String
+    let fontSize: CGFloat
+}
+
+private func rgbaComponents(for color: PlatformColor) -> (red: CGFloat, green: CGFloat, blue: CGFloat, alpha: CGFloat) {
+    #if canImport(AppKit)
+    let rgb = color.usingColorSpace(.deviceRGB) ?? color
+    var red: CGFloat = 0
+    var green: CGFloat = 0
+    var blue: CGFloat = 0
+    var alpha: CGFloat = 0
+    rgb.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+    return (red, green, blue, alpha)
+    #elseif canImport(UIKit)
+    var red: CGFloat = 0
+    var green: CGFloat = 0
+    var blue: CGFloat = 0
+    var alpha: CGFloat = 0
+    color.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+    return (red, green, blue, alpha)
+    #endif
+}

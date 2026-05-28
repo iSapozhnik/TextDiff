@@ -1,54 +1,70 @@
-import AppKit
 import SwiftUI
+import TextDiffCore
+import TextDiffUICommon
+
+#if os(macOS)
+import AppKit
+import TextDiffMacOSUI
+#elseif os(iOS)
+import UIKit
+import TextDiffIOSUI
+#endif
 
 /// A SwiftUI view that renders a merged visual diff between two strings.
 public struct TextDiffView: View {
     private let result: TextDiffResult?
     private let original: String
     private let updatedValue: String
-    private let updatedBinding: Binding<String>?
     private let mode: TextDiffComparisonMode
     private let style: TextDiffStyle
-    private let showsInvisibleCharacters: Bool
+    private let updatedBinding: Binding<String>?
     private let isRevertActionsEnabled: Bool
     private let onRevertAction: ((TextDiffRevertAction) -> Void)?
 
+    #if os(macOS)
+    private let showsInvisibleCharacters: Bool
+    #endif
+
     /// Creates a text diff view for two versions of content.
-    ///
-    /// - Parameters:
-    ///   - original: The source text before edits.
-    ///   - updated: The source text after edits.
-    ///   - style: Visual style used to render additions, deletions, and unchanged text.
-    ///   - mode: Comparison mode that controls token-level or character-refined output.
-    ///   - showsInvisibleCharacters: Debug-only overlay that draws whitespace/newline symbols in red.
     public init(
         original: String,
         updated: String,
         style: TextDiffStyle = .default,
-        mode: TextDiffComparisonMode = .token,
-        showsInvisibleCharacters: Bool = false
+        mode: TextDiffComparisonMode = .token
     ) {
         self.result = nil
         self.original = original
         self.updatedValue = updated
-        self.updatedBinding = nil
         self.mode = mode
         self.style = style
-        self.showsInvisibleCharacters = showsInvisibleCharacters
+        self.updatedBinding = nil
         self.isRevertActionsEnabled = false
         self.onRevertAction = nil
+        #if os(macOS)
+        self.showsInvisibleCharacters = false
+        #endif
     }
 
-    /// Creates a text diff view backed by a mutable updated binding.
-    ///
-    /// - Parameters:
-    ///   - original: The source text before edits.
-    ///   - updated: The source text after edits.
-    ///   - style: Visual style used to render additions, deletions, and unchanged text.
-    ///   - mode: Comparison mode that controls token-level or character-refined output.
-    ///   - showsInvisibleCharacters: Debug-only overlay that draws whitespace/newline symbols in red.
-    ///   - isRevertActionsEnabled: Enables hover affordance and revert actions.
-    ///   - onRevertAction: Optional callback invoked on revert clicks.
+    /// Creates a display-only diff view backed by a precomputed result.
+    public init(
+        result: TextDiffResult,
+        style: TextDiffStyle = .default
+    ) {
+        self.result = result
+        self.original = result.original
+        self.updatedValue = result.updated
+        self.mode = result.mode
+        self.style = style
+        self.updatedBinding = nil
+        self.isRevertActionsEnabled = false
+        self.onRevertAction = nil
+        #if os(macOS)
+        self.showsInvisibleCharacters = false
+        #endif
+    }
+
+    #if os(macOS)
+    /// Creates a macOS-only text diff view backed by a mutable updated binding.
     public init(
         original: String,
         updated: Binding<String>,
@@ -68,33 +84,33 @@ public struct TextDiffView: View {
         self.isRevertActionsEnabled = isRevertActionsEnabled
         self.onRevertAction = onRevertAction
     }
+    #endif
 
-    /// Creates a display-only diff view backed by a precomputed result.
-    ///
-    /// - Parameters:
-    ///   - result: A precomputed diff result to render.
-    ///   - style: Visual style used to render additions, deletions, and unchanged text.
-    ///   - showsInvisibleCharacters: Debug-only overlay that draws whitespace/newline symbols in red.
+    #if os(iOS)
+    /// Creates an iOS-only text diff view backed by a mutable updated binding.
     public init(
-        result: TextDiffResult,
+        original: String,
+        updated: Binding<String>,
         style: TextDiffStyle = .default,
-        showsInvisibleCharacters: Bool = false
+        mode: TextDiffComparisonMode = .token,
+        isRevertActionsEnabled: Bool = true,
+        onRevertAction: ((TextDiffRevertAction) -> Void)? = nil
     ) {
-        self.result = result
-        self.original = result.original
-        self.updatedValue = result.updated
-        self.updatedBinding = nil
-        self.mode = result.mode
+        self.result = nil
+        self.original = original
+        self.updatedValue = updated.wrappedValue
+        self.updatedBinding = updated
+        self.mode = mode
         self.style = style
-        self.showsInvisibleCharacters = showsInvisibleCharacters
-        self.isRevertActionsEnabled = false
-        self.onRevertAction = nil
+        self.isRevertActionsEnabled = isRevertActionsEnabled
+        self.onRevertAction = onRevertAction
     }
+    #endif
 
-    /// The view body that renders the current diff content.
     public var body: some View {
+        #if os(macOS)
         let updated = updatedBinding?.wrappedValue ?? updatedValue
-        DiffTextViewRepresentable(
+        TextDiffMacOSRepresentable(
             result: result,
             original: original,
             updated: updated,
@@ -106,6 +122,105 @@ public struct TextDiffView: View {
             onRevertAction: onRevertAction
         )
         .accessibilityLabel("Text diff")
+        #elseif os(iOS)
+        let updated = updatedBinding?.wrappedValue ?? updatedValue
+        TextDiffIOSRepresentable(
+            result: result,
+            original: original,
+            updated: updated,
+            updatedBinding: updatedBinding,
+            style: style,
+            mode: mode,
+            isRevertActionsEnabled: isRevertActionsEnabled,
+            onRevertAction: onRevertAction
+        )
+        .accessibilityLabel("Text diff")
+        #else
+        Color.clear.accessibilityHidden(true)
+        #endif
+    }
+}
+
+#if os(macOS)
+private struct TextDiffMacOSRepresentable: NSViewRepresentable {
+    let result: TextDiffResult?
+    let original: String
+    let updated: String
+    let updatedBinding: Binding<String>?
+    let style: TextDiffStyle
+    let mode: TextDiffComparisonMode
+    let showsInvisibleCharacters: Bool
+    let isRevertActionsEnabled: Bool
+    let onRevertAction: ((TextDiffRevertAction) -> Void)?
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    func makeNSView(context: Context) -> NSTextDiffView {
+        let view: NSTextDiffView
+        if let result {
+            view = NSTextDiffView(result: result, style: style)
+        } else {
+            view = NSTextDiffView(
+                original: original,
+                updated: updated,
+                style: style,
+                mode: mode
+            )
+        }
+        view.setContentCompressionResistancePriority(.required, for: .vertical)
+        view.setContentHuggingPriority(.required, for: .vertical)
+        context.coordinator.update(
+            updatedBinding: updatedBinding,
+            onRevertAction: onRevertAction
+        )
+        view.showsInvisibleCharacters = showsInvisibleCharacters
+        view.isRevertActionsEnabled = result == nil ? isRevertActionsEnabled : false
+        view.onRevertAction = { [coordinator = context.coordinator] action in
+            coordinator.handle(action)
+        }
+        return view
+    }
+
+    func updateNSView(_ view: NSTextDiffView, context: Context) {
+        context.coordinator.update(
+            updatedBinding: updatedBinding,
+            onRevertAction: onRevertAction
+        )
+        view.onRevertAction = { [coordinator = context.coordinator] action in
+            coordinator.handle(action)
+        }
+        view.showsInvisibleCharacters = showsInvisibleCharacters
+        view.isRevertActionsEnabled = result == nil ? isRevertActionsEnabled : false
+        if let result {
+            view.setContent(result: result, style: style)
+        } else {
+            view.setContent(
+                original: original,
+                updated: updated,
+                style: style,
+                mode: mode
+            )
+        }
+    }
+
+    final class Coordinator {
+        private var updatedBinding: Binding<String>?
+        private var onRevertAction: ((TextDiffRevertAction) -> Void)?
+
+        func update(
+            updatedBinding: Binding<String>?,
+            onRevertAction: ((TextDiffRevertAction) -> Void)?
+        ) {
+            self.updatedBinding = updatedBinding
+            self.onRevertAction = onRevertAction
+        }
+
+        func handle(_ action: TextDiffRevertAction) {
+            updatedBinding?.wrappedValue = action.resultingUpdated
+            onRevertAction?(action)
+        }
     }
 }
 
@@ -120,7 +235,7 @@ public struct TextDiffView: View {
 
 #Preview("TextDiffView") {
     @Previewable @State var updatedText = "Added a diff view. It looks good!"
-    let font: NSFont = .systemFont(ofSize: 16, weight: .regular)
+    let font: PlatformFont = .systemFont(ofSize: 16, weight: .regular)
     let style = TextDiffStyle(
         additionsStyle: TextDiffChangeStyle(
             fillColor: .systemGreen.withAlphaComponent(0.28),
@@ -136,7 +251,7 @@ public struct TextDiffView: View {
         textColor: .labelColor,
         font: font,
         chipCornerRadius: 3,
-        chipInsets: NSEdgeInsets(top: 1, left: 0, bottom: 1, right: 0),
+        chipInsets: TextDiffEdgeInsets(top: 1, left: 0, bottom: 1, right: 0),
         interChipSpacing: 1,
         lineSpacing: 2,
         groupStrokeStyle: .dashed
@@ -145,13 +260,13 @@ public struct TextDiffView: View {
         Text("Diff by characters")
             .bold()
         TextDiffView(
-                original: "Add a diff view! Looks good!",
-                updated: "Added a diff view. It looks good!",
-                style: style,
-                mode: .character
-            )
+            original: "Add a diff view! Looks good!",
+            updated: "Added a diff view. It looks good!",
+            style: style,
+            mode: .character
+        )
         HStack {
-            Text("dog → fog:")
+            Text("dog -> fog:")
             TextDiffView(
                 original: "dog",
                 updated: "fog",
@@ -162,15 +277,15 @@ public struct TextDiffView: View {
         Divider()
         Text("Diff by words and revertible")
             .bold()
-            TextDiffView(
-                original: "Add a diff view! Looks good!",
-                updated: $updatedText,
-                style: style,
-                mode: .token,
-                isRevertActionsEnabled: true
-            )
+        TextDiffView(
+            original: "Add a diff view! Looks good!",
+            updated: $updatedText,
+            style: style,
+            mode: .token,
+            isRevertActionsEnabled: true
+        )
         HStack {
-            Text("dog → fog:")
+            Text("dog -> fog:")
             TextDiffView(
                 original: "dog",
                 updated: "fog",
@@ -219,7 +334,7 @@ public struct TextDiffView: View {
 }
 
 #Preview("Height diff") {
-    let font: NSFont = .systemFont(ofSize: 32, weight: .regular)
+    let font: PlatformFont = .systemFont(ofSize: 32, weight: .regular)
     let style = TextDiffStyle(
         additionsStyle: TextDiffChangeStyle(
             fillColor: .systemGreen.withAlphaComponent(0.28),
@@ -235,15 +350,15 @@ public struct TextDiffView: View {
         textColor: .labelColor,
         font: font,
         chipCornerRadius: 3,
-        chipInsets: NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0),
+        chipInsets: TextDiffEdgeInsets(top: 0, left: 0, bottom: 0, right: 0),
         interChipSpacing: 1,
         lineSpacing: 0
     )
     ZStack(alignment: .topLeading) {
         Text("Add ed a diff view. It looks good! Add ed a diff view. It looks good!")
-            .font(.system(size: 32, weight: .regular, design: nil))
+            .font(.system(size: 32, weight: .regular))
             .foregroundStyle(.red.opacity(0.7))
-        
+
         TextDiffView(
             original: "Add ed a diff view. It looks good! Add ed a diff view. It looks good.",
             updated: "Add ed a diff view. It looks good! Add ed a diff view. It looks good!",
@@ -258,17 +373,142 @@ private struct RevertBindingPreview: View {
     @State private var updated = "To switch back to your computer, simply press any key on your keyboard."
 
     var body: some View {
-        var style = TextDiffStyle.default
-        style.font = .systemFont(ofSize: 13)
-        return TextDiffView(
-            original: "To switch back to your computer, just press any key on your keyboard.",
+        TextDiffView(
+            original: "To switch back to your Mac, press any key on your keyboard.",
             updated: $updated,
-            style: style,
             mode: .token,
-            showsInvisibleCharacters: false,
             isRevertActionsEnabled: true
         )
         .padding()
-        .frame(width: 500)
+        .frame(width: 420)
     }
 }
+#endif
+
+#if os(iOS)
+private struct TextDiffIOSRepresentable: UIViewRepresentable {
+    let result: TextDiffResult?
+    let original: String
+    let updated: String
+    let updatedBinding: Binding<String>?
+    let style: TextDiffStyle
+    let mode: TextDiffComparisonMode
+    let isRevertActionsEnabled: Bool
+    let onRevertAction: ((TextDiffRevertAction) -> Void)?
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    func makeUIView(context: Context) -> UITextDiffView {
+        let view: UITextDiffView
+        if let result {
+            view = UITextDiffView(result: result, style: style)
+        } else {
+            view = UITextDiffView(
+                original: original,
+                updated: updated,
+                style: style,
+                mode: mode
+            )
+        }
+        view.setContentCompressionResistancePriority(.required, for: .vertical)
+        view.setContentHuggingPriority(.required, for: .vertical)
+        context.coordinator.update(
+            updatedBinding: updatedBinding,
+            onRevertAction: onRevertAction
+        )
+        view.isRevertActionsEnabled = result == nil ? isRevertActionsEnabled : false
+        view.onRevertAction = { [coordinator = context.coordinator] action in
+            coordinator.handle(action)
+        }
+        return view
+    }
+
+    func updateUIView(_ view: UITextDiffView, context: Context) {
+        context.coordinator.update(
+            updatedBinding: updatedBinding,
+            onRevertAction: onRevertAction
+        )
+        view.onRevertAction = { [coordinator = context.coordinator] action in
+            coordinator.handle(action)
+        }
+        view.isRevertActionsEnabled = result == nil ? isRevertActionsEnabled : false
+        if let result {
+            view.setContent(result: result, style: style)
+        } else {
+            view.setContent(
+                original: original,
+                updated: updated,
+                style: style,
+                mode: mode
+            )
+        }
+    }
+
+    final class Coordinator {
+        private var updatedBinding: Binding<String>?
+        private var onRevertAction: ((TextDiffRevertAction) -> Void)?
+
+        func update(
+            updatedBinding: Binding<String>?,
+            onRevertAction: ((TextDiffRevertAction) -> Void)?
+        ) {
+            self.updatedBinding = updatedBinding
+            self.onRevertAction = onRevertAction
+        }
+
+        func handle(_ action: TextDiffRevertAction) {
+            updatedBinding?.wrappedValue = action.resultingUpdated
+            onRevertAction?(action)
+        }
+    }
+}
+
+#Preview("iOS Representable Default") {
+    TextDiffIOSRepresentable(
+        result: nil,
+        original: "Apply old value in this sentence.",
+        updated: "Apply new value in this sentence.",
+        updatedBinding: nil,
+        style: .default,
+        mode: .token,
+        isRevertActionsEnabled: false,
+        onRevertAction: nil
+    )
+    .padding()
+    .frame(width: 420)
+}
+
+#Preview("iOS Representable Precomputed Result") {
+    TextDiffIOSRepresentable(
+        result: TextDiffEngine.result(
+            original: "Track old values in storage.",
+            updated: "Track new values in storage.",
+            mode: .token
+        ),
+        original: "",
+        updated: "",
+        updatedBinding: nil,
+        style: .default,
+        mode: .token,
+        isRevertActionsEnabled: false,
+        onRevertAction: nil
+    )
+    .padding()
+    .frame(width: 420)
+}
+
+#Preview("iOS Revert Binding") {
+    @Previewable @State var updated = "To switch back to your computer, simply press any key on your keyboard."
+
+    TextDiffView(
+        original: "To switch back to your Mac, press any key on your keyboard.",
+        updated: $updated,
+        mode: .token,
+        isRevertActionsEnabled: true
+    )
+    .padding()
+    .frame(width: 360)
+}
+#endif
