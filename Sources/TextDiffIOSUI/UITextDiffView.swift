@@ -37,6 +37,22 @@ public final class UITextDiffView: UIView {
         }
     }
 
+    /// Enables two-tap revert action selection and hit-testing.
+    public var isRevertActionsEnabled: Bool = false {
+        didSet {
+            guard oldValue != isRevertActionsEnabled else {
+                return
+            }
+            guard !contentSource.isResultDriven else {
+                return
+            }
+            invalidateCachedLayout()
+        }
+    }
+
+    /// Callback invoked when user taps a selected change a second time.
+    public var onRevertAction: ((TextDiffRevertAction) -> Void)?
+
     private var segments: [DiffSegment]
     private let diffProvider: DiffProvider
     private var contentSource: ContentSource
@@ -44,8 +60,14 @@ public final class UITextDiffView: UIView {
     private var lastUpdated: String
     private var lastModeKey: Int
     private var isBatchUpdating = false
+    private var segmentGeneration: Int = 0
     private var cachedWidth: CGFloat = -1
     private var cachedLayout: DiffLayout?
+    private var cachedInteractionContext: DiffRevertInteractionContext?
+    private var cachedInteractionWidth: CGFloat = -1
+    private var cachedInteractionGeneration: Int = -1
+    private var selectedActionID: Int?
+    private let minimumTapTargetSize = CGSize(width: 44, height: 44)
 
     override public var intrinsicContentSize: CGSize {
         let layout = layoutForCurrentWidth()
@@ -143,6 +165,7 @@ public final class UITextDiffView: UIView {
             }
             run.attributedText.draw(in: run.textRect)
         }
+        drawSelectedRevertAffordance(layout: layout)
     }
 
     public func setContent(
@@ -193,6 +216,7 @@ public final class UITextDiffView: UIView {
         lastModeKey = newModeKey
         segments = diffProvider(original, updated, mode)
         contentSource = .text
+        segmentGeneration += 1
         invalidateCachedLayout()
         return true
     }
@@ -206,6 +230,7 @@ public final class UITextDiffView: UIView {
         lastUpdated = result.updated
         lastModeKey = Self.modeKey(for: result.mode)
         segments = result.segments
+        segmentGeneration += 1
         invalidateCachedLayout()
     }
 
@@ -227,14 +252,149 @@ public final class UITextDiffView: UIView {
 
         cachedWidth = width
         cachedLayout = layout
+        invalidateInteractionCache()
         return layout
     }
 
     private func invalidateCachedLayout() {
         cachedLayout = nil
         cachedWidth = -1
+        invalidateInteractionCache()
+        clearSelection()
         setNeedsDisplay()
         invalidateIntrinsicContentSize()
+    }
+
+    private func invalidateInteractionCache() {
+        cachedInteractionContext = nil
+        cachedInteractionWidth = -1
+        cachedInteractionGeneration = -1
+    }
+
+    private func interactionContext(for layout: DiffLayout) -> DiffRevertInteractionContext? {
+        guard isRevertActionsEnabled, mode == .token, !contentSource.isResultDriven else {
+            return nil
+        }
+
+        let width = max(bounds.width, 1)
+        if let cachedInteractionContext,
+           abs(cachedInteractionWidth - width) <= 0.5,
+           cachedInteractionGeneration == segmentGeneration {
+            return cachedInteractionContext
+        }
+
+        let context = DiffRevertActionResolver.interactionContext(
+            segments: segments,
+            runs: layout.runs,
+            mode: mode,
+            original: original,
+            updated: updated
+        )
+        cachedInteractionContext = context
+        cachedInteractionWidth = width
+        cachedInteractionGeneration = segmentGeneration
+        return context
+    }
+
+    @objc private func handleTap(_ recognizer: UITapGestureRecognizer) {
+        guard recognizer.state == .ended else {
+            return
+        }
+
+        handleTap(at: recognizer.location(in: self))
+    }
+
+    private func handleTap(at point: CGPoint) {
+        let layout = layoutForCurrentWidth()
+        guard let context = interactionContext(for: layout) else {
+            clearSelection()
+            return
+        }
+
+        guard let actionID = actionIDForHitTarget(at: point, context: context) else {
+            clearSelection()
+            return
+        }
+
+        if selectedActionID == actionID {
+            triggerRevert(actionID, context: context)
+        } else {
+            selectedActionID = actionID
+            setNeedsDisplay()
+        }
+    }
+
+    private func clearSelection() {
+        guard selectedActionID != nil else {
+            return
+        }
+        selectedActionID = nil
+        setNeedsDisplay()
+    }
+
+    private func triggerRevert(_ actionID: Int, context: DiffRevertInteractionContext) {
+        defer {
+            clearSelection()
+        }
+        guard let candidate = context.candidatesByID[actionID],
+              let action = DiffRevertActionResolver.action(from: candidate, updated: updated) else {
+            return
+        }
+        onRevertAction?(action)
+    }
+
+    private func actionIDForHitTarget(
+        at point: CGPoint,
+        context: DiffRevertInteractionContext
+    ) -> Int? {
+        return DiffRevertHitResolver.actionIDForHitTarget(
+            at: point,
+            context: context,
+            minimumTapTargetSize: minimumTapTargetSize
+        )
+    }
+
+    private func drawSelectedRevertAffordance(layout: DiffLayout) {
+        guard let selectedActionID else {
+            return
+        }
+        guard let context = interactionContext(for: layout),
+              let chipRects = context.chipRectsByActionID[selectedActionID],
+              !chipRects.isEmpty else {
+            return
+        }
+
+        tintColor.withAlphaComponent(0.9).setStroke()
+        if chipRects.count > 1, let unionRect = context.unionChipRectByActionID[selectedActionID] {
+            let groupRect = unionRect.insetBy(dx: -1.5, dy: -1.5)
+            let groupPath = UIBezierPath(
+                roundedRect: groupRect,
+                cornerRadius: style.chipCornerRadius + 2
+            )
+            applyGroupStrokeStyle(to: groupPath)
+            groupPath.stroke()
+        } else {
+            for chipRect in chipRects {
+                let outlineRect = chipRect.insetBy(dx: -1.5, dy: -1.5)
+                let outlinePath = UIBezierPath(
+                    roundedRect: outlineRect,
+                    cornerRadius: style.chipCornerRadius + 1
+                )
+                applyGroupStrokeStyle(to: outlinePath)
+                outlinePath.stroke()
+            }
+        }
+    }
+
+    private func applyGroupStrokeStyle(to path: UIBezierPath) {
+        path.lineWidth = 1.5
+        switch style.groupStrokeStyle {
+        case .solid:
+            path.setLineDash(nil, count: 0, phase: 0)
+        case .dashed:
+            var pattern: [CGFloat] = [4, 2]
+            path.setLineDash(&pattern, count: pattern.count, phase: 0)
+        }
     }
 
     private func drawChip(
@@ -266,6 +426,9 @@ public final class UITextDiffView: UIView {
         backgroundColor = .clear
         contentMode = .redraw
         isOpaque = false
+        isUserInteractionEnabled = true
+        let tapRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
+        addGestureRecognizer(tapRecognizer)
     }
 
     private static func modeKey(for mode: TextDiffComparisonMode) -> Int {
@@ -276,9 +439,67 @@ public final class UITextDiffView: UIView {
             return 1
         }
     }
+
+    #if TESTING
+    @discardableResult
+    func _testingSelectFirstRevertAction() -> Bool {
+        let layout = layoutForCurrentWidth()
+        guard let context = interactionContext(for: layout),
+              let firstActionID = context.candidatesByID.keys.sorted().first else {
+            return false
+        }
+        selectedActionID = firstActionID
+        setNeedsDisplay()
+        return true
+    }
+
+    @discardableResult
+    func _testingTriggerSelectedRevertAction() -> Bool {
+        guard let selectedActionID else {
+            return false
+        }
+        let layout = layoutForCurrentWidth()
+        guard let context = interactionContext(for: layout),
+              context.candidatesByID[selectedActionID] != nil else {
+            return false
+        }
+        triggerRevert(selectedActionID, context: context)
+        return true
+    }
+
+    func _testingSelectedActionID() -> Int? {
+        selectedActionID
+    }
+
+    func _testingActionCenters() -> [CGPoint] {
+        let layout = layoutForCurrentWidth()
+        guard let context = interactionContext(for: layout) else {
+            return []
+        }
+        return context.candidatesByID.keys.sorted().compactMap { actionID in
+            guard let rect = context.unionChipRectByActionID[actionID] else {
+                return nil
+            }
+            return CGPoint(x: rect.midX, y: rect.midY)
+        }
+    }
+
+    func _testingTap(at point: CGPoint) {
+        handleTap(at: point)
+    }
+    #endif
 }
 
 private enum ContentSource {
     case text
     case result
+
+    var isResultDriven: Bool {
+        switch self {
+        case .text:
+            return false
+        case .result:
+            return true
+        }
+    }
 }

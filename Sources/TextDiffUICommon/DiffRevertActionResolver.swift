@@ -1,34 +1,45 @@
 import CoreGraphics
 import Foundation
 import TextDiffCore
-import TextDiffUICommon
 
-enum DiffRevertCandidateKind: Equatable {
+package enum DiffRevertCandidateKind: Equatable {
     case singleInsertion
     case singleDeletion
     case pairedReplacement
 }
 
-struct DiffRevertCandidate: Equatable {
-    let id: Int
-    let kind: DiffRevertCandidateKind
-    let tokenKind: DiffTokenKind
-    let segmentIndices: [Int]
-    let updatedRange: NSRange
-    let replacementText: String
-    let originalTextFragment: String?
-    let updatedTextFragment: String?
+package struct DiffRevertCandidate: Equatable {
+    package let id: Int
+    package let kind: DiffRevertCandidateKind
+    package let tokenKind: DiffTokenKind
+    package let segmentIndices: [Int]
+    package let updatedRange: NSRange
+    package let replacementText: String
+    package let originalTextFragment: String?
+    package let updatedTextFragment: String?
 }
 
-struct DiffRevertInteractionContext {
-    let candidatesByID: [Int: DiffRevertCandidate]
-    let runIndicesByActionID: [Int: [Int]]
-    let chipRectsByActionID: [Int: [CGRect]]
-    let unionChipRectByActionID: [Int: CGRect]
+package struct DiffRevertInteractionContext {
+    package let candidatesByID: [Int: DiffRevertCandidate]
+    package let runIndicesByActionID: [Int: [Int]]
+    package let chipRectsByActionID: [Int: [CGRect]]
+    package let unionChipRectByActionID: [Int: CGRect]
+
+    package init(
+        candidatesByID: [Int: DiffRevertCandidate],
+        runIndicesByActionID: [Int: [Int]],
+        chipRectsByActionID: [Int: [CGRect]],
+        unionChipRectByActionID: [Int: CGRect]
+    ) {
+        self.candidatesByID = candidatesByID
+        self.runIndicesByActionID = runIndicesByActionID
+        self.chipRectsByActionID = chipRectsByActionID
+        self.unionChipRectByActionID = unionChipRectByActionID
+    }
 }
 
-enum DiffRevertActionResolver {
-    static func candidates(
+package enum DiffRevertActionResolver {
+    package static func candidates(
         from segments: [DiffSegment],
         mode: TextDiffComparisonMode
     ) -> [DiffRevertCandidate] {
@@ -43,7 +54,7 @@ enum DiffRevertActionResolver {
         return candidates(from: segments, mode: mode, original: original, updated: updated)
     }
 
-    static func candidates(
+    package static func candidates(
         from segments: [DiffSegment],
         mode: TextDiffComparisonMode,
         original: String,
@@ -131,7 +142,7 @@ enum DiffRevertActionResolver {
         return output
     }
 
-    static func interactionContext(
+    package static func interactionContext(
         segments: [DiffSegment],
         runs: [LaidOutRun],
         mode: TextDiffComparisonMode,
@@ -189,7 +200,7 @@ enum DiffRevertActionResolver {
         )
     }
 
-    static func action(
+    package static func action(
         from candidate: DiffRevertCandidate,
         updated: String
     ) -> TextDiffRevertAction? {
@@ -263,6 +274,7 @@ enum DiffRevertActionResolver {
 
         return false
     }
+
     private static func adjustedStandaloneWordDeletionReplacement(
         _ replacement: String,
         insertionLocation: Int,

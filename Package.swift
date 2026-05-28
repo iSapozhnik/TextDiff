@@ -87,6 +87,13 @@ let package = Package(
             ]
         ),
         .testTarget(
+            name: "TextDiffUICommonTests",
+            dependencies: [
+                "TextDiffCore",
+                "TextDiffUICommon"
+            ]
+        ),
+        .testTarget(
             name: "TextDiffMacOSUITests",
             dependencies: [
                 "TextDiff",
