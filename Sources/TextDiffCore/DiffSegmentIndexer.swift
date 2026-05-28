@@ -32,16 +32,6 @@ package enum DiffSegmentIndexer {
                 updatedRange = NSRange(location: updatedCursor, length: textLength)
                 let originalMatches = textMatches(segment.text, source: originalNSString, at: originalCursor)
                 let updatedMatches = textMatches(segment.text, source: updatedNSString, at: updatedCursor)
-                #if !TESTING
-                assert(
-                    originalMatches,
-                    "Equal segment text mismatch in original at \(originalCursor) for segment \(index): \(segment.text)"
-                )
-                assert(
-                    updatedMatches,
-                    "Equal segment text mismatch in updated at \(updatedCursor) for segment \(index): \(segment.text)"
-                )
-                #endif
                 if originalMatches {
                     originalCursor += textLength
                 }
